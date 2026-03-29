@@ -31,8 +31,6 @@ function initializeSchema() {
       last_activity_at TEXT,
       preset_id TEXT,
       permission_mode TEXT DEFAULT 'acceptEdits',
-      auto_accept INTEGER DEFAULT 0,
-      plan_mode INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       ended_at TEXT,
       FOREIGN KEY (preset_id) REFERENCES presets(id)

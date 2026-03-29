@@ -51,14 +51,12 @@ router.get('/:id', (req, res) => {
 // Create new session
 router.post('/', (req, res) => {
   try {
-    const { name, workingDirectory, presetId, permissionMode, autoAccept, planMode, initialPrompt, branch, mcpConnections } = req.body;
+    const { name, workingDirectory, presetId, permissionMode, initialPrompt, branch, mcpConnections } = req.body;
 
     let options = {
       name,
       workingDirectory,
       permissionMode,
-      autoAccept,
-      planMode,
       initialPrompt,
       branch,
       mcpConnections
@@ -184,37 +182,29 @@ router.get('/:id/summary', (req, res) => {
 
 // Toggle plan mode
 // Note: Permission mode is set at session creation and cannot be changed mid-session
-// in Claude Code. This updates the stored preference for the next session.
-router.post('/:id/plan-mode', (req, res) => {
+// Update permission mode
+// Note: Permission mode is set at session creation. This updates the stored preference.
+router.post('/:id/permission-mode', (req, res) => {
   const session = getSession(req.params.id);
   if (!session) {
     return res.status(404).json({ error: 'Session not found or not active' });
   }
 
-  session.planMode = req.body.enabled;
+  const { permissionMode } = req.body;
+  const valid = ['acceptEdits', 'auto', 'plan', 'default'];
+  if (!valid.includes(permissionMode)) {
+    return res.status(400).json({ error: `Invalid permission mode. Must be one of: ${valid.join(', ')}` });
+  }
+
+  session.permissionMode = permissionMode;
   const db = getDb();
-  db.prepare('UPDATE sessions SET plan_mode = ? WHERE id = ?').run(req.body.enabled ? 1 : 0, req.params.id);
+  db.prepare('UPDATE sessions SET permission_mode = ? WHERE id = ?').run(permissionMode, req.params.id);
 
   res.json({
     success: true,
-    planMode: session.planMode,
+    permissionMode: session.permissionMode,
     note: 'Permission mode changes take effect on next session. The running process retains its original mode.'
   });
-});
-
-// Toggle auto-accept
-// Note: Permission mode is set at session creation. This updates preference only.
-router.post('/:id/auto-accept', (req, res) => {
-  const session = getSession(req.params.id);
-  if (!session) {
-    return res.status(404).json({ error: 'Session not found or not active' });
-  }
-
-  session.autoAccept = req.body.enabled;
-  const db = getDb();
-  db.prepare('UPDATE sessions SET auto_accept = ? WHERE id = ?').run(req.body.enabled ? 1 : 0, req.params.id);
-
-  res.json({ success: true, autoAccept: session.autoAccept });
 });
 
 module.exports = router;

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../utils/api';
 import { X, Globe, Clock, Plane, Server, Folder } from 'lucide-react';
+import PillSelector from '../common/PillSelector';
 import styles from './NewSessionModal.module.css';
 
 const presetIcons = {
@@ -22,8 +23,6 @@ export default function NewSessionModal({ onClose }) {
     workingDirectory: '',
     initialPrompt: '',
     permissionMode: 'acceptEdits',
-    autoAccept: false,
-    planMode: false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -50,8 +49,6 @@ export default function NewSessionModal({ onClose }) {
         workingDirectory: form.workingDirectory || undefined,
         initialPrompt: form.initialPrompt || undefined,
         permissionMode: form.permissionMode,
-        autoAccept: form.autoAccept,
-        planMode: form.planMode,
       });
       await loadSessions();
       navigate(`/session/${session.id}`);
@@ -143,40 +140,16 @@ export default function NewSessionModal({ onClose }) {
 
             <div className={styles.field}>
               <label>Permission Mode</label>
-              <select
-                className="input"
+              <PillSelector
+                options={[
+                  { value: 'acceptEdits', label: 'Accept Edits' },
+                  { value: 'auto', label: 'Auto' },
+                  { value: 'plan', label: 'Plan' },
+                  { value: 'default', label: 'Ask' },
+                ]}
                 value={form.permissionMode}
-                onChange={e => setForm(f => ({ ...f, permissionMode: e.target.value }))}
-              >
-                <option value="acceptEdits">Accept Edits (default)</option>
-                <option value="auto">Auto Mode (classifier-based)</option>
-                <option value="plan">Plan Mode (read-only)</option>
-                <option value="default">Prompt for Everything</option>
-              </select>
-            </div>
-
-            <div className={styles.toggleRow}>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={form.autoAccept}
-                  onChange={e => setForm(f => ({ ...f, autoAccept: e.target.checked }))}
-                />
-                <span className="toggle-slider" />
-              </label>
-              <span>Auto-accept mode</span>
-            </div>
-
-            <div className={styles.toggleRow}>
-              <label className="toggle">
-                <input
-                  type="checkbox"
-                  checked={form.planMode}
-                  onChange={e => setForm(f => ({ ...f, planMode: e.target.checked }))}
-                />
-                <span className="toggle-slider" />
-              </label>
-              <span>Plan mode</span>
+                onChange={v => setForm(f => ({ ...f, permissionMode: v }))}
+              />
             </div>
 
             <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>

@@ -14,12 +14,12 @@ class SessionProcess {
     this.listeners = new Set();
     this.workingDirectory = options.workingDirectory || process.cwd();
     this.permissionMode = options.permissionMode || 'acceptEdits';
-    this.autoAccept = options.autoAccept || false;
-    this.planMode = options.planMode || false;
     this.mcpConnections = options.mcpConnections || [];
     this.initialPrompt = options.initialPrompt || null;
     this.pendingPermission = null;
+    this.errorMessage = null;
     this.messageQueue = [];
+    this.cliSessionId = null; // Tracks Claude CLI session ID for --resume
   }
 
   addListener(callback) {
@@ -76,35 +76,42 @@ class SessionProcess {
   }
 
   start() {
-    // --print enables non-interactive mode
-    // --output-format stream-json gives us real-time JSON events
-    // --input-format stream-json lets us send messages via stdin as JSON
+    this.status = 'idle';
+    this.updateDbStatus('idle');
+
+    if (this.initialPrompt) {
+      this.sendMessage(this.initialPrompt);
+    }
+  }
+
+  buildArgs(prompt) {
     const args = [
       '--print',
       '--output-format', 'stream-json',
-      '--input-format', 'stream-json',
       '--verbose'
     ];
 
-    // Permission modes:
-    //   acceptEdits  - auto-approve file edits, prompt for other tools (our default)
-    //   auto         - classifier-based approval for autonomous operation
-    //   plan         - read-only, no modifications
-    //   default      - prompt for everything
-    //   bypassPermissions - skip all checks (dangerous, sandboxes only)
-    if (this.planMode) {
-      args.push('--permission-mode', 'plan');
-    } else if (this.autoAccept) {
-      args.push('--permission-mode', 'auto');
-    } else {
-      args.push('--permission-mode', 'acceptEdits');
+    // Resume existing CLI session or start a new one
+    if (this.cliSessionId) {
+      args.push('--resume', this.cliSessionId);
     }
 
-    // MCP server connections via --mcp-config (takes JSON file path or inline JSON)
+    args.push('--permission-mode', this.permissionMode || 'acceptEdits');
+
+    // MCP server connections
     const mcpConfig = this.buildMcpConfig();
     if (mcpConfig) {
       args.push('--mcp-config', JSON.stringify(mcpConfig));
     }
+
+    // The prompt is passed as a positional argument
+    args.push(prompt);
+
+    return args;
+  }
+
+  spawnProcess(prompt) {
+    const args = this.buildArgs(prompt);
 
     this.process = spawn('claude', args, {
       cwd: this.workingDirectory,
@@ -114,9 +121,6 @@ class SessionProcess {
       },
       stdio: ['pipe', 'pipe', 'pipe']
     });
-
-    this.status = 'idle';
-    this.updateDbStatus('idle');
 
     let partialLine = '';
 
@@ -145,31 +149,35 @@ class SessionProcess {
     });
 
     this.process.on('close', (code) => {
-      this.status = 'ended';
-      this.updateDbStatus('ended');
-      this.broadcast({
-        type: 'session_ended',
-        sessionId: this.id,
-        exitCode: code,
-        timestamp: new Date().toISOString()
-      });
-      this.generateSummary();
+      this.process = null;
+      // Don't overwrite 'error' status — preserve the error message for the UI
+      if (this.status !== 'error') {
+        this.status = 'idle';
+        this.updateDbStatus('idle');
+        this.broadcast({
+          type: 'session_status',
+          sessionId: this.id,
+          status: 'idle',
+          timestamp: new Date().toISOString()
+        });
+      }
     });
 
     this.process.on('error', (err) => {
+      this.process = null;
       this.status = 'error';
       this.updateDbStatus('error');
+      const message = err.code === 'ENOENT'
+        ? 'claude CLI not found. Install it with: npm install -g @anthropic-ai/claude-code'
+        : err.message;
+      this.errorMessage = message;
       this.broadcast({
         type: 'error',
         sessionId: this.id,
-        error: err.message,
+        error: message,
         timestamp: new Date().toISOString()
       });
     });
-
-    if (this.initialPrompt) {
-      setTimeout(() => this.sendMessage(this.initialPrompt), 500);
-    }
   }
 
   handleOutputLine(line) {
@@ -242,6 +250,10 @@ class SessionProcess {
         break;
 
       case 'system':
+        // Capture the CLI session ID from init event for --resume
+        if (event.subtype === 'init' && event.session_id) {
+          this.cliSessionId = event.session_id;
+        }
         if (event.subtype === 'context_window' || event.usage) {
           const usage = event.usage || {};
           const totalTokens = (usage.input_tokens || 0) + (usage.output_tokens || 0) + (usage.cache_read_input_tokens || 0);
@@ -277,8 +289,6 @@ class SessionProcess {
         break;
 
       case 'result':
-        this.status = 'idle';
-        this.updateDbStatus('idle');
         if (event.result) {
           const content = typeof event.result === 'string'
             ? event.result
@@ -287,6 +297,12 @@ class SessionProcess {
             INSERT INTO messages (session_id, role, content, timestamp)
             VALUES (?, 'assistant', ?, datetime('now'))
           `).run(this.id, content);
+        }
+        // Process queued messages after this turn completes
+        if (this.messageQueue.length > 0) {
+          const nextMsg = this.messageQueue.shift();
+          // Wait for process to fully close before starting next
+          setTimeout(() => this.sendMessage(nextMsg), 100);
         }
         break;
     }
@@ -301,8 +317,10 @@ class SessionProcess {
   }
 
   sendMessage(text) {
-    if (!this.process || this.process.killed) {
-      throw new Error('Session process is not running');
+    if (this.process) {
+      // A process is already running — queue the message
+      this.messageQueue.push(text);
+      return;
     }
 
     const db = getDb();
@@ -321,16 +339,15 @@ class SessionProcess {
     this.status = 'working';
     this.updateDbStatus('working');
 
-    // With --input-format stream-json, send messages as JSON objects
-    const inputMsg = JSON.stringify({ type: 'user_message', content: text }) + '\n';
-    this.process.stdin.write(inputMsg);
-
     this.broadcast({
       type: 'user_message',
       sessionId: this.id,
       content: text,
       timestamp: new Date().toISOString()
     });
+
+    // Spawn a new claude process for this message
+    this.spawnProcess(text);
   }
 
   respondToPermission(approved) {
@@ -371,8 +388,8 @@ class SessionProcess {
   resume() {
     if (this.process) {
       this.process.kill('SIGCONT');
-      this.status = 'idle';
-      this.updateDbStatus('idle');
+      this.status = 'working';
+      this.updateDbStatus('working');
       this.broadcast({
         type: 'session_resumed',
         sessionId: this.id,
@@ -382,13 +399,31 @@ class SessionProcess {
   }
 
   async end() {
+    this.messageQueue = [];
     if (this.process && !this.process.killed) {
       return new Promise((resolve) => {
         this.process.on('close', () => {
+          this.status = 'ended';
+          this.updateDbStatus('ended');
+          this.broadcast({
+            type: 'session_ended',
+            sessionId: this.id,
+            timestamp: new Date().toISOString()
+          });
+          this.generateSummary();
           resolve();
         });
         treeKill(this.process.pid, 'SIGTERM');
       });
+    } else {
+      this.status = 'ended';
+      this.updateDbStatus('ended');
+      this.broadcast({
+        type: 'session_ended',
+        sessionId: this.id,
+        timestamp: new Date().toISOString()
+      });
+      this.generateSummary();
     }
   }
 
@@ -527,17 +562,15 @@ function createSession(options = {}) {
   const name = options.name || `Session ${new Date().toLocaleString()}`;
 
   db.prepare(`
-    INSERT INTO sessions (id, name, status, working_directory, branch, preset_id, permission_mode, auto_accept, plan_mode, created_at, last_activity_at)
-    VALUES (?, ?, 'idle', ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    INSERT INTO sessions (id, name, status, working_directory, branch, preset_id, permission_mode, created_at, last_activity_at)
+    VALUES (?, ?, 'idle', ?, ?, ?, ?, datetime('now'), datetime('now'))
   `).run(
     id,
     name,
     options.workingDirectory || null,
     options.branch || null,
     options.presetId || null,
-    options.permissionMode || 'acceptEdits',
-    options.autoAccept ? 1 : 0,
-    options.planMode ? 1 : 0
+    options.permissionMode || 'acceptEdits'
   );
 
   const session = new SessionProcess(id, options);

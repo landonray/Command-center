@@ -1,0 +1,19 @@
+import React from 'react';
+import styles from './PillSelector.module.css';
+
+export default function PillSelector({ options, value, onChange }) {
+  return (
+    <div className={styles.pillGroup}>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          className={`${styles.pill} ${value === opt.value ? styles.active : ''}`}
+          onClick={() => onChange(opt.value)}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}

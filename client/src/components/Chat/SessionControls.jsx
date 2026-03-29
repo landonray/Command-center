@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { useApp } from '../../context/AppContext';
-import { Pause, Play, Square, Map, Zap, MoreVertical, Server, Power, PowerOff } from 'lucide-react';
+import { Pause, Play, Square, MoreVertical, Server, Power, PowerOff } from 'lucide-react';
+import PillSelector from '../common/PillSelector';
 import styles from './SessionControls.module.css';
 
 export default function SessionControls({ sessionId, status, session }) {
   const { loadSessions, mcpServers, loadMcpServers } = useApp();
   const [showMenu, setShowMenu] = useState(false);
-  const [planMode, setPlanMode] = useState(session?.plan_mode || false);
-  const [autoAccept, setAutoAccept] = useState(session?.auto_accept || false);
+  const [permissionMode, setPermissionMode] = useState(session?.permission_mode || 'acceptEdits');
 
   useEffect(() => {
     loadMcpServers();
@@ -31,16 +31,9 @@ export default function SessionControls({ sessionId, status, session }) {
     }
   };
 
-  const togglePlanMode = async () => {
-    const newVal = !planMode;
-    setPlanMode(newVal);
-    await api.post(`/api/sessions/${sessionId}/plan-mode`, { enabled: newVal });
-  };
-
-  const toggleAutoAccept = async () => {
-    const newVal = !autoAccept;
-    setAutoAccept(newVal);
-    await api.post(`/api/sessions/${sessionId}/auto-accept`, { enabled: newVal });
+  const changePermissionMode = async (mode) => {
+    setPermissionMode(mode);
+    await api.post(`/api/sessions/${sessionId}/permission-mode`, { permissionMode: mode });
   };
 
   const toggleMcpAutoConnect = async (serverId) => {
@@ -77,16 +70,19 @@ export default function SessionControls({ sessionId, status, session }) {
           <>
             <div className={styles.menuBackdrop} onClick={() => setShowMenu(false)} />
             <div className={styles.menu}>
-              <button className={styles.menuItem} onClick={togglePlanMode}>
-                <Map size={14} />
-                <span>Plan Mode</span>
-                <span className={`${styles.indicator} ${planMode ? styles.on : ''}`} />
-              </button>
-              <button className={styles.menuItem} onClick={toggleAutoAccept}>
-                <Zap size={14} />
-                <span>Auto Accept</span>
-                <span className={`${styles.indicator} ${autoAccept ? styles.on : ''}`} />
-              </button>
+              <div className={styles.menuLabel}>Permission Mode</div>
+              <div style={{ padding: '0 8px 8px' }}>
+                <PillSelector
+                  options={[
+                    { value: 'acceptEdits', label: 'Edits' },
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'plan', label: 'Plan' },
+                    { value: 'default', label: 'Ask' },
+                  ]}
+                  value={permissionMode}
+                  onChange={changePermissionMode}
+                />
+              </div>
 
               {mcpServers.length > 0 && (
                 <>
