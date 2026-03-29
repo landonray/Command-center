@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  padding-top: 40px; /* space for toggle button */
+  /* top padding handled by Layout panelTabs */
 }
 
 .header {

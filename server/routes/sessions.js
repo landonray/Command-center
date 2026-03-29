@@ -212,4 +212,25 @@ router.post('/:id/permission-mode', (req, res) => {
   });
 });
 
+// Get session preview URL
+router.get('/:id/preview-url', (req, res) => {
+  const db = getDb();
+  const session = db.prepare('SELECT preview_url FROM sessions WHERE id = ?').get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  res.json({ preview_url: session.preview_url });
+});
+
+// Update session preview URL
+router.put('/:id/preview-url', (req, res) => {
+  const db = getDb();
+  const { url } = req.body;
+  const result = db.prepare('UPDATE sessions SET preview_url = ? WHERE id = ?').run(url, req.params.id);
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  res.json({ preview_url: url });
+});
+
 module.exports = router;

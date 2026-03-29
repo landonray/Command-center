@@ -47,6 +47,12 @@
   z-index: 10;
 }
 
+.panelTabs {
+  padding: 10px 12px 0;
+  padding-top: 44px;
+  flex-shrink: 0;
+}
+
 @media (max-width: 1200px) {
   .leftPanel {
     width: 240px;

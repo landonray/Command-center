@@ -154,6 +154,9 @@ function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_quality_results_timestamp ON quality_results(timestamp);
   `);
 
+  // Migrations: add columns to existing tables
+  try { db.exec('ALTER TABLE sessions ADD COLUMN preview_url TEXT'); } catch (e) { /* column already exists */ }
+
   seedDefaultPresets();
   seedQualityRules();
 }

@@ -14,6 +14,8 @@ const initialState = {
   fileTreePath: null,
   selectedFile: null,
   showFileBrowser: true,
+  rightPanelMode: 'files',
+  previewUrl: '',
 };
 
 function reducer(state, action) {
@@ -45,6 +47,10 @@ function reducer(state, action) {
       return { ...state, selectedFile: action.payload };
     case 'TOGGLE_FILE_BROWSER':
       return { ...state, showFileBrowser: !state.showFileBrowser };
+    case 'SET_RIGHT_PANEL_MODE':
+      return { ...state, rightPanelMode: action.payload };
+    case 'SET_PREVIEW_URL':
+      return { ...state, previewUrl: action.payload };
     default:
       return state;
   }
