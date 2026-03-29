@@ -6,6 +6,7 @@ import MessageList from './MessageList';
 import PermissionPrompt from './PermissionPrompt';
 import SessionControls from './SessionControls';
 import ContextIndicator from './ContextIndicator';
+import QualityScorecard from '../Quality/QualityScorecard';
 import { Send, Loader } from 'lucide-react';
 import styles from './ChatInterface.module.css';
 
@@ -76,6 +77,11 @@ export default function ChatInterface({ sessionId }) {
           <ContextIndicator usage={session?.context_window_usage || 0} />
           <SessionControls sessionId={sessionId} status={status} session={session} />
         </div>
+      </div>
+
+      {/* Quality Scorecard */}
+      <div style={{ padding: '0 16px', flexShrink: 0 }}>
+        <QualityScorecard sessionId={sessionId} />
       </div>
 
       {/* Messages */}

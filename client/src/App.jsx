@@ -7,6 +7,7 @@ import SessionView from './components/Chat/SessionView';
 import MobileFileBrowser from './components/FileBrowser/MobileFileBrowser';
 import HistoryView from './components/History/HistoryView';
 import SettingsView from './components/Settings/SettingsView';
+import QualityHistory from './components/Quality/QualityHistory';
 import { useMediaQuery } from './hooks/useMediaQuery';
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/files" element={<MobileFileBrowser />} />
           <Route path="/history" element={<HistoryView />} />
           <Route path="/settings" element={<SettingsView />} />
+          <Route path="/quality-analytics" element={<QualityHistory />} />
         </Routes>
       </MobileLayout>
     );
@@ -33,6 +35,7 @@ export default function App() {
       <Route path="/files" element={<MobileFileBrowser />} />
       <Route path="/history" element={<HistoryView />} />
       <Route path="/settings" element={<SettingsView />} />
+      <Route path="/quality-analytics" element={<QualityHistory />} />
     </Routes>
   );
 }

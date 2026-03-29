@@ -3,17 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import PresetsManager from '../Presets/PresetsManager';
 import NotificationSettings from '../Notifications/NotificationSettings';
 import McpManager from '../MCP/McpManager';
-import { ArrowLeft, Sliders, Bell, Server, FolderOpen } from 'lucide-react';
+import RulesConfig from '../Quality/RulesConfig';
+import { ArrowLeft, Sliders, Bell, Server, FolderOpen, Shield, BarChart3 } from 'lucide-react';
 import styles from './SettingsView.module.css';
 
 const sections = [
+  { id: 'quality', label: 'Quality Rules', icon: Shield },
   { id: 'presets', label: 'Presets', icon: FolderOpen },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'mcp', label: 'MCP Servers', icon: Server },
 ];
 
 export default function SettingsView() {
-  const [activeSection, setActiveSection] = useState('presets');
+  const [activeSection, setActiveSection] = useState('quality');
   const navigate = useNavigate();
 
   return (
@@ -23,6 +25,9 @@ export default function SettingsView() {
           <ArrowLeft size={14} /> Back
         </button>
         <h1><Sliders size={20} /> Settings</h1>
+        <button className="btn btn-ghost btn-sm" onClick={() => navigate('/quality-analytics')}>
+          <BarChart3 size={14} /> Quality Analytics
+        </button>
       </div>
 
       <div className={styles.layout}>
@@ -43,6 +48,7 @@ export default function SettingsView() {
         </nav>
 
         <div className={styles.content}>
+          {activeSection === 'quality' && <RulesConfig />}
           {activeSection === 'presets' && <PresetsManager />}
           {activeSection === 'notifications' && <NotificationSettings />}
           {activeSection === 'mcp' && <McpManager />}

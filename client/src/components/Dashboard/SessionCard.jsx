@@ -1,6 +1,7 @@
 import React from 'react';
 import { timeAgo, getContextHealthLevel, getContextHealthLabel } from '../../utils/format';
 import { MessageSquare, Wrench, GitBranch, Clock, Activity } from 'lucide-react';
+import QualityScorecard from '../Quality/QualityScorecard';
 import styles from './SessionCard.module.css';
 
 export default function SessionCard({ session, onClick }) {
@@ -56,6 +57,11 @@ export default function SessionCard({ session, onClick }) {
       {session.last_action_summary && (
         <p className={styles.summary}>{session.last_action_summary}</p>
       )}
+
+      {/* Quality Scorecard */}
+      <div onClick={e => e.stopPropagation()}>
+        <QualityScorecard sessionId={session.id} />
+      </div>
 
       <div className={styles.footer}>
         <span className={styles.time}>

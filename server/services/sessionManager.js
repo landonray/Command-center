@@ -148,6 +148,9 @@ class SessionProcess {
   }
 
   handleOutputLine(line) {
+    // Check for quality result markers in any output
+    this.parseQualityResults(line);
+
     try {
       const event = JSON.parse(line);
       this.processStreamEvent(event);
@@ -370,6 +373,31 @@ class SessionProcess {
         UPDATE sessions SET status = ?, last_activity_at = datetime('now')
         WHERE id = ?
       `).run(status, this.id);
+    }
+  }
+
+  parseQualityResults(text) {
+    // Look for QUALITY_RESULT markers from prompt/agent hooks
+    const pattern = /QUALITY_RESULT:(\S+):(\w+):(PASS|FAIL)(?::(.*))?/g;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const [, ruleId, severity, result, details] = match;
+      try {
+        const db = getDb();
+        db.prepare(`
+          INSERT INTO quality_results (session_id, rule_id, rule_name, result, severity, details, timestamp)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+        `).run(
+          this.id,
+          ruleId,
+          ruleId,
+          result.toLowerCase(),
+          severity,
+          details || null
+        );
+      } catch (e) {
+        // Ignore DB errors for quality results
+      }
     }
   }
 

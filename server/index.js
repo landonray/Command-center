@@ -23,6 +23,7 @@ app.use('/api/presets', require('./routes/presets'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/mcp', require('./routes/mcp'));
 app.use('/api/history', require('./routes/history'));
+app.use('/api/quality', require('./routes/quality'));
 
 // Health check
 app.get('/api/health', (req, res) => {
