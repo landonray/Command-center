@@ -1,7 +1,7 @@
 export function timeAgo(dateString) {
   if (!dateString) return 'never';
 
-  const date = new Date(dateString);
+  const date = new Date(dateString.replace(' ', 'T') + 'Z');
   const now = new Date();
   const seconds = Math.floor((now - date) / 1000);
 
@@ -15,7 +15,7 @@ export function timeAgo(dateString) {
 
 export function formatDate(dateString) {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleString();
+  return new Date(dateString.replace(' ', 'T') + 'Z').toLocaleString();
 }
 
 export function formatFileSize(bytes) {
