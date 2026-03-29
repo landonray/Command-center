@@ -431,6 +431,36 @@ class SessionProcess {
       }
     }
 
+    // Build transcript for LLM summarization (truncate to fit context)
+    const transcript = messages
+      .slice(-40) // Last 40 messages to stay within limits
+      .map(m => `${m.role}: ${m.content.substring(0, 500)}`)
+      .join('\n\n');
+
+    const summarizationPrompt = `Summarize this Claude Code session in 2-3 sentences. Focus on: what was accomplished, which files were changed, and what branch the work was on. Be concise and specific.\n\nTranscript:\n${transcript}`;
+
+    // Try LLM-based summary via Claude Code CLI
+    try {
+      const { execSync } = require('child_process');
+      const llmSummary = execSync(
+        `echo ${JSON.stringify(summarizationPrompt)} | claude --output-format text --no-input 2>/dev/null`,
+        {
+          encoding: 'utf-8',
+          timeout: 30000,
+          cwd: this.workingDirectory || process.cwd()
+        }
+      ).trim();
+
+      if (llmSummary && llmSummary.length > 20) {
+        // Use LLM-generated summary
+        this.saveSummary(db, llmSummary, keyActions, filesModified);
+        return;
+      }
+    } catch (e) {
+      // LLM summarization failed, fall back to heuristic
+    }
+
+    // Fallback: heuristic summary
     const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
     const summaryParts = [];
     summaryParts.push(`Session with ${messageCount} messages (${userMsgs.length} user, ${assistantMsgs.length} assistant).`);
@@ -444,7 +474,10 @@ class SessionProcess {
     }
 
     const summaryText = summaryParts.join(' ');
+    this.saveSummary(db, summaryText, keyActions, filesModified);
+  }
 
+  saveSummary(db, summaryText, keyActions, filesModified) {
     db.prepare(`
       INSERT INTO session_summaries (session_id, summary, key_actions, files_modified, created_at)
       VALUES (?, ?, ?, ?, datetime('now'))
@@ -452,7 +485,9 @@ class SessionProcess {
       this.id,
       summaryText,
       keyActions || null,
-      filesModified.size > 0 ? JSON.stringify([...filesModified]) : null
+      filesModified instanceof Set
+        ? (filesModified.size > 0 ? JSON.stringify([...filesModified]) : null)
+        : (filesModified || null)
     );
   }
 }

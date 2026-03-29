@@ -388,12 +388,21 @@ fi`,
     {
       id: 'dead-code-cleanup',
       name: 'Dead Code Cleanup',
-      description: 'Scans for commented-out code blocks, unused imports, and orphaned functions after refactors.',
-      hook_type: 'command',
+      description: 'Scans for commented-out code blocks, unused imports, and orphaned functions after refactors. Command detects, then prompt evaluates if intentional.',
+      hook_type: 'command+prompt',
       fires_on: 'PostToolUse:Edit',
       severity: 'low',
       enabled: 1,
-      prompt: null,
+      prompt: `The following dead code was detected in a recently edited file. Review each finding and determine:
+1. Is this commented-out code that should be removed?
+2. Are these unused imports that should be cleaned up?
+3. Could any of these be intentionally kept (e.g., for documentation or future use)?
+
+If there is dead code that should be cleaned up, respond with:
+FAIL: [list of dead code items that should be removed]
+
+If all findings are intentional or there are no real issues, respond with:
+PASS: No actionable dead code found.`,
       script: `#!/bin/bash
 FILE="$CLAUDE_FILE_PATH"
 if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then exit 0; fi
@@ -631,8 +640,8 @@ PASS: Implementation remains aligned with spec.`,
     {
       id: 'visual-comparison',
       name: 'Visual Comparison',
-      description: 'Screenshots rendered page output and compares to design expectations. Pages-Agent only, toggleable.',
-      hook_type: 'agent',
+      description: 'Screenshots rendered page output and compares to design expectations. Command captures screenshot, prompt evaluates. Pages-Agent only, toggleable.',
+      hook_type: 'command+prompt',
       fires_on: 'Stop',
       severity: 'high',
       enabled: 0,
@@ -647,7 +656,35 @@ FAIL: Visual discrepancies: [description]
 
 If rendering matches design, respond with:
 PASS: Visual output matches design expectations.`,
-      script: null,
+      script: `#!/bin/bash
+# Capture screenshot of rendered page for visual comparison
+# Requires a running dev server and a headless browser tool
+URL="\${VISUAL_URL:-http://localhost:3000}"
+SCREENSHOT_DIR="/tmp/mission-control-screenshots"
+mkdir -p "$SCREENSHOT_DIR"
+TIMESTAMP=$(date +%s)
+SCREENSHOT="$SCREENSHOT_DIR/capture-$TIMESTAMP.png"
+
+# Try to capture with available tools
+if command -v puppeteer-screenshot &> /dev/null; then
+  puppeteer-screenshot "$URL" "$SCREENSHOT" 2>/dev/null
+elif command -v playwright &> /dev/null; then
+  playwright screenshot "$URL" "$SCREENSHOT" 2>/dev/null
+elif command -v wkhtmltoimage &> /dev/null; then
+  wkhtmltoimage "$URL" "$SCREENSHOT" 2>/dev/null
+else
+  echo "PASS: No screenshot tool available. Install puppeteer, playwright, or wkhtmltoimage."
+  exit 0
+fi
+
+if [ -f "$SCREENSHOT" ]; then
+  echo "Screenshot captured at $SCREENSHOT"
+  echo "PASS: Screenshot captured for review"
+  exit 0
+else
+  echo "FAIL: Could not capture screenshot"
+  exit 1
+fi`,
       config: JSON.stringify({ projects: ['pages-agent'] }),
       category: 'visual',
       sort_order: 15

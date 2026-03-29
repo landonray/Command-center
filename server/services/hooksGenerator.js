@@ -31,6 +31,10 @@ function generateHooksConfig() {
     const hookEntries = buildHookEntries(rule);
     for (const entry of hookEntries) {
       if (hooks[entry.event]) {
+        // For PostToolUse command hooks, wrap with debounce to batch burst edits
+        if (entry.event === 'PostToolUse' && entry.hook.type === 'command') {
+          entry.hook.command = buildDebouncedCommand(rule.id, entry.hook.command);
+        }
         hooks[entry.event].push(entry.hook);
       }
     }
@@ -96,30 +100,8 @@ function buildHookEntries(rule) {
 
     switch (rule.hook_type) {
       case 'command': {
-        // Write script to file and reference it
-        const scriptPath = path.join(SCRIPTS_DIR, `${rule.id}.sh`);
-        if (rule.script) {
-          fs.writeFileSync(scriptPath, rule.script, { mode: 0o755 });
-        }
-        // Wrapper script that runs the check and reports result via HTTP callback
-        const wrapperPath = path.join(SCRIPTS_DIR, `${rule.id}-wrapper.sh`);
-        const wrapperScript = `#!/bin/bash
-OUTPUT=$(bash "${scriptPath}" 2>&1)
-EXIT_CODE=$?
-if [ $EXIT_CODE -eq 0 ]; then
-  RESULT="pass"
-else
-  RESULT="fail"
-fi
-DETAILS=$(echo "$OUTPUT" | head -c 500 | sed 's/"/\\\\"/g' | tr '\\n' ' ')
-curl -s -X POST ${CALLBACK_URL} \\
-  -H "Content-Type: application/json" \\
-  -d "{\\"rule_id\\":\\"${rule.id}\\",\\"rule_name\\":\\"${rule.name}\\",\\"result\\":\\"$RESULT\\",\\"severity\\":\\"${rule.severity}\\",\\"details\\":\\"$DETAILS\\"}" > /dev/null 2>&1
-exit $EXIT_CODE
-`;
-        fs.writeFileSync(wrapperPath, wrapperScript, { mode: 0o755 });
-        hook.type = 'command';
-        hook.command = `bash "${wrapperPath}"`;
+        const { commandHook } = buildCommandHook(rule);
+        Object.assign(hook, commandHook);
         break;
       }
 
@@ -137,12 +119,66 @@ exit $EXIT_CODE
         }
         break;
       }
+
+      case 'command+prompt': {
+        // Two-phase: command detects, then prompt evaluates
+        // Phase 1: Command hook
+        const { commandHook } = buildCommandHook(rule);
+        const commandEntry = {
+          ...hook,
+          ...commandHook,
+          _phase: 'detect'
+        };
+        entries.push({ event, hook: commandEntry });
+
+        // Phase 2: Prompt hook (evaluates command findings)
+        const promptHook = {
+          ...hook,
+          _phase: 'evaluate',
+          type: 'prompt',
+          prompt: buildPromptWithCallback(rule)
+        };
+        entries.push({ event, hook: promptHook });
+        continue; // Skip the push below since we already added both
+      }
     }
 
     entries.push({ event, hook });
   }
 
   return entries;
+}
+
+/**
+ * Build a command hook with wrapper for result reporting
+ */
+function buildCommandHook(rule) {
+  const scriptPath = path.join(SCRIPTS_DIR, `${rule.id}.sh`);
+  if (rule.script) {
+    fs.writeFileSync(scriptPath, rule.script, { mode: 0o755 });
+  }
+  const wrapperPath = path.join(SCRIPTS_DIR, `${rule.id}-wrapper.sh`);
+  const wrapperScript = `#!/bin/bash
+OUTPUT=$(bash "${scriptPath}" 2>&1)
+EXIT_CODE=$?
+if [ $EXIT_CODE -eq 0 ]; then
+  RESULT="pass"
+else
+  RESULT="fail"
+fi
+DETAILS=$(echo "$OUTPUT" | head -c 500 | sed 's/"/\\\\"/g' | tr '\\n' ' ')
+curl -s -X POST ${CALLBACK_URL} \\
+  -H "Content-Type: application/json" \\
+  -d "{\\"rule_id\\":\\"${rule.id}\\",\\"rule_name\\":\\"${rule.name}\\",\\"result\\":\\"$RESULT\\",\\"severity\\":\\"${rule.severity}\\",\\"details\\":\\"$DETAILS\\"}" > /dev/null 2>&1
+exit $EXIT_CODE
+`;
+  fs.writeFileSync(wrapperPath, wrapperScript, { mode: 0o755 });
+  return {
+    commandHook: {
+      type: 'command',
+      command: `bash "${wrapperPath}"`
+    }
+  };
 }
 
 /**
@@ -169,6 +205,16 @@ IMPORTANT: After your evaluation, report the result by including one of these ma
 QUALITY_RESULT:${rule.id}:${rule.severity}:PASS
 or
 QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[brief reason]`;
+}
+
+/**
+ * Build a debounced command wrapper for PostToolUse batching.
+ * Uses a lockfile with timestamp to skip checks if one ran recently (within 5 seconds).
+ * This prevents running the same check on every individual file edit in a burst.
+ */
+function buildDebouncedCommand(ruleId, originalCommand) {
+  const lockFile = path.join(SCRIPTS_DIR, `.${ruleId}.lastrun`);
+  return `bash -c 'LOCK="${lockFile}"; NOW=$(date +%s); if [ -f "$LOCK" ]; then LAST=$(cat "$LOCK"); DIFF=$((NOW - LAST)); if [ $DIFF -lt 5 ]; then exit 0; fi; fi; echo $NOW > "$LOCK"; ${originalCommand.replace(/'/g, "'\\''")}'`;
 }
 
 /**

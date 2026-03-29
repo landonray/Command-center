@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { useApp } from '../../context/AppContext';
-import { Pause, Play, Square, Map, Zap, MoreVertical } from 'lucide-react';
+import { Pause, Play, Square, Map, Zap, MoreVertical, Server, Power, PowerOff } from 'lucide-react';
 import styles from './SessionControls.module.css';
 
 export default function SessionControls({ sessionId, status, session }) {
-  const { loadSessions } = useApp();
+  const { loadSessions, mcpServers, loadMcpServers } = useApp();
   const [showMenu, setShowMenu] = useState(false);
   const [planMode, setPlanMode] = useState(session?.plan_mode || false);
   const [autoAccept, setAutoAccept] = useState(session?.auto_accept || false);
+
+  useEffect(() => {
+    loadMcpServers();
+  }, []);
 
   const handlePause = async () => {
     await api.post(`/api/sessions/${sessionId}/pause`);
@@ -37,6 +41,13 @@ export default function SessionControls({ sessionId, status, session }) {
     const newVal = !autoAccept;
     setAutoAccept(newVal);
     await api.post(`/api/sessions/${sessionId}/auto-accept`, { enabled: newVal });
+  };
+
+  const toggleMcpAutoConnect = async (serverId) => {
+    try {
+      await api.post(`/api/mcp/${serverId}/toggle-auto-connect`);
+      await loadMcpServers();
+    } catch (e) {}
   };
 
   if (status === 'ended') return null;
@@ -76,6 +87,26 @@ export default function SessionControls({ sessionId, status, session }) {
                 <span>Auto Accept</span>
                 <span className={`${styles.indicator} ${autoAccept ? styles.on : ''}`} />
               </button>
+
+              {mcpServers.length > 0 && (
+                <>
+                  <div className={styles.menuDivider} />
+                  <div className={styles.menuLabel}>
+                    <Server size={12} /> MCP Servers
+                  </div>
+                  {mcpServers.map(server => (
+                    <button
+                      key={server.id}
+                      className={styles.menuItem}
+                      onClick={() => toggleMcpAutoConnect(server.id)}
+                    >
+                      {server.auto_connect ? <Power size={14} style={{ color: 'var(--success)' }} /> : <PowerOff size={14} />}
+                      <span>{server.name}</span>
+                      <span className={`${styles.indicator} ${server.auto_connect ? styles.on : ''}`} />
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           </>
         )}
