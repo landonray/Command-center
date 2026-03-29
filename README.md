@@ -105,6 +105,29 @@ Phase 5 Quality Rules Engine is configured in Settings > Quality Rules. Toggle r
 
 ## Requirements
 
-- Node.js 18+
-- Claude Code CLI installed and authenticated
-- Tailscale (for remote access)
+- **Node.js 18+**
+
+- **Claude Code CLI** — required to run Claude Code sessions
+
+  ```bash
+  npm install -g @anthropic-ai/claude-code
+  ```
+
+  Authenticate on first run:
+  ```bash
+  claude
+  ```
+
+- **GitHub CLI (`gh`)** — required for the "Create New Project" feature (not needed for other features)
+
+  ```bash
+  # macOS
+  brew install gh
+  ```
+
+  Authenticate:
+  ```bash
+  gh auth login
+  ```
+
+- **Tailscale** — for remote access from other devices (optional for local use)
