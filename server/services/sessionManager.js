@@ -13,7 +13,7 @@ class SessionProcess {
     this.status = 'idle';
     this.listeners = new Set();
     this.workingDirectory = options.workingDirectory || process.cwd();
-    this.permissionMode = options.permissionMode || 'default';
+    this.permissionMode = options.permissionMode || 'acceptEdits';
     this.autoAccept = options.autoAccept || false;
     this.planMode = options.planMode || false;
     this.mcpConnections = options.mcpConnections || [];
@@ -86,15 +86,18 @@ class SessionProcess {
       '--verbose'
     ];
 
-    // Permission mode: auto is the recommended safe mode for autonomous operation.
-    // bypassPermissions is the nuclear option (no permission checks at all).
-    // plan mode is read-only.
-    if (this.autoAccept) {
-      args.push('--permission-mode', 'auto');
-    } else if (this.planMode) {
+    // Permission modes:
+    //   acceptEdits  - auto-approve file edits, prompt for other tools (our default)
+    //   auto         - classifier-based approval for autonomous operation
+    //   plan         - read-only, no modifications
+    //   default      - prompt for everything
+    //   bypassPermissions - skip all checks (dangerous, sandboxes only)
+    if (this.planMode) {
       args.push('--permission-mode', 'plan');
+    } else if (this.autoAccept) {
+      args.push('--permission-mode', 'auto');
     } else {
-      args.push('--permission-mode', 'default');
+      args.push('--permission-mode', 'acceptEdits');
     }
 
     // MCP server connections via --mcp-config (takes JSON file path or inline JSON)
@@ -532,7 +535,7 @@ function createSession(options = {}) {
     options.workingDirectory || null,
     options.branch || null,
     options.presetId || null,
-    options.permissionMode || 'default',
+    options.permissionMode || 'acceptEdits',
     options.autoAccept ? 1 : 0,
     options.planMode ? 1 : 0
   );

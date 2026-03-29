@@ -158,9 +158,10 @@ export default function PresetsManager() {
                 <label>Permission Mode</label>
                 <select className="input" value={form.permission_mode}
                   onChange={e => setForm(f => ({ ...f, permission_mode: e.target.value }))}>
-                  <option value="default">Default</option>
-                  <option value="plan">Plan Mode</option>
-                  <option value="auto-accept">Auto Accept</option>
+                  <option value="acceptEdits">Accept Edits (default)</option>
+                  <option value="auto">Auto Mode (classifier-based)</option>
+                  <option value="plan">Plan Mode (read-only)</option>
+                  <option value="default">Prompt for Everything</option>
                 </select>
               </div>
 

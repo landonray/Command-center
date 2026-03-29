@@ -21,7 +21,7 @@ export default function NewSessionModal({ onClose }) {
     name: '',
     workingDirectory: '',
     initialPrompt: '',
-    permissionMode: 'default',
+    permissionMode: 'acceptEdits',
     autoAccept: false,
     planMode: false,
   });
@@ -148,9 +148,10 @@ export default function NewSessionModal({ onClose }) {
                 value={form.permissionMode}
                 onChange={e => setForm(f => ({ ...f, permissionMode: e.target.value }))}
               >
-                <option value="default">Default</option>
-                <option value="plan">Plan Mode</option>
-                <option value="auto-accept">Auto Accept</option>
+                <option value="acceptEdits">Accept Edits (default)</option>
+                <option value="auto">Auto Mode (classifier-based)</option>
+                <option value="plan">Plan Mode (read-only)</option>
+                <option value="default">Prompt for Everything</option>
               </select>
             </div>
 
