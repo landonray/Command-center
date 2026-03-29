@@ -30,7 +30,7 @@ function initializeSchema() {
       last_action_summary TEXT,
       last_activity_at TEXT,
       preset_id TEXT,
-      permission_mode TEXT DEFAULT 'default',
+      permission_mode TEXT DEFAULT 'acceptEdits',
       auto_accept INTEGER DEFAULT 0,
       plan_mode INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
@@ -66,7 +66,7 @@ function initializeSchema() {
       working_directory TEXT NOT NULL,
       mcp_connections TEXT,
       claude_md_path TEXT,
-      permission_mode TEXT DEFAULT 'default',
+      permission_mode TEXT DEFAULT 'acceptEdits',
       initial_prompt TEXT,
       icon TEXT,
       created_at TEXT DEFAULT (datetime('now')),
@@ -165,7 +165,7 @@ function seedDefaultPresets() {
       description: 'Pages-Agent repo with Ontraport MCP',
       working_directory: '~/projects/pages-agent',
       mcp_connections: JSON.stringify(['ontraport-mcp']),
-      permission_mode: 'default',
+      permission_mode: 'acceptEdits',
       initial_prompt: '',
       icon: 'globe'
     },
@@ -175,7 +175,7 @@ function seedDefaultPresets() {
       description: 'AttesTime project directory',
       working_directory: '~/projects/attestime',
       mcp_connections: null,
-      permission_mode: 'default',
+      permission_mode: 'acceptEdits',
       initial_prompt: '',
       icon: 'clock'
     },
@@ -185,7 +185,7 @@ function seedDefaultPresets() {
       description: 'Autopilot project with Ontraport MCP',
       working_directory: '~/projects/autopilot',
       mcp_connections: JSON.stringify(['ontraport-mcp']),
-      permission_mode: 'default',
+      permission_mode: 'acceptEdits',
       initial_prompt: '',
       icon: 'plane'
     },
@@ -195,7 +195,7 @@ function seedDefaultPresets() {
       description: 'Ontraport MCP server repo',
       working_directory: '~/projects/ontraport-mcp',
       mcp_connections: null,
-      permission_mode: 'default',
+      permission_mode: 'acceptEdits',
       initial_prompt: '',
       icon: 'server'
     }
@@ -527,8 +527,12 @@ PASS: Dependency is justified.`,
 # Scan all recently modified files for incomplete markers
 ISSUES=""
 
-# Find files modified in the last 10 minutes
-FILES=$(find . -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.py' -o -name '*.go' -o -name '*.rs' | head -100)
+# Find files modified in the last 10 minutes (scoped to recent changes only for performance)
+FILES=$(find . -not -path '*/node_modules/*' -not -path '*/.git/*' -not -path '*/dist/*' -mmin -10 \\( -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.py' -o -name '*.go' -o -name '*.rs' \\) 2>/dev/null | head -50)
+# Fallback: if no recent files, check git diff for changed files
+if [ -z "$FILES" ]; then
+  FILES=$(git diff --name-only HEAD 2>/dev/null | grep -E '\\.(js|jsx|ts|tsx|py|go|rs)$' | head -50)
+fi
 
 for FILE in $FILES; do
   # TODOs and FIXMEs
