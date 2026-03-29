@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const router = express.Router();
 const { getDb } = require('../database');
 const { createSession, getSession, getAllActiveSessions, endSession } = require('../services/sessionManager');
@@ -22,8 +23,12 @@ router.get('/', (req, res) => {
 
   const enriched = sessions.map(s => {
     const activeInfo = active.find(a => a.id === s.id);
+    const projectName = s.working_directory
+      ? path.basename(s.working_directory)
+      : 'Ungrouped';
     return {
       ...s,
+      project_name: projectName,
       isActive: !!activeInfo,
       pendingPermission: activeInfo?.pendingPermission || null
     };

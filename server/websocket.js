@@ -34,6 +34,15 @@ function setupWebSocket(server) {
               sessionId: msg.sessionId,
               status: session.status,
               pendingPermission: session.pendingPermission,
+              errorMessage: session.errorMessage || null,
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            // Session not in memory (e.g. server restarted) — report as ended
+            safeSend(ws, {
+              type: 'session_status',
+              sessionId: msg.sessionId,
+              status: 'ended',
               timestamp: new Date().toISOString()
             });
           }
@@ -122,6 +131,13 @@ function handleMessage(ws, msg, state) {
         const session = getSession(msg.sessionId);
         if (session) {
           session.sendMessage(msg.content);
+        } else {
+          safeSend(ws, {
+            type: 'error',
+            sessionId: msg.sessionId,
+            error: 'Session is no longer running. Create a new session to continue.',
+            timestamp: new Date().toISOString()
+          });
         }
       }
       break;

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 export function useWebSocket(sessionId) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState('idle');
+  const [errorMessage, setErrorMessage] = useState(null);
   const [pendingPermission, setPendingPermission] = useState(null);
   const [streamEvents, setStreamEvents] = useState([]);
   const wsRef = useRef(null);
@@ -28,6 +29,9 @@ export function useWebSocket(sessionId) {
             if (data.pendingPermission) {
               setPendingPermission(data.pendingPermission);
             }
+            if (data.errorMessage) {
+              setErrorMessage(data.errorMessage);
+            }
             break;
 
           case 'stream_event':
@@ -35,31 +39,32 @@ export function useWebSocket(sessionId) {
             setStreamEvents(prev => [...prev, data.event]);
 
             if (data.event?.type === 'assistant' && data.event?.message) {
-              const content = typeof data.event.message === 'string'
-                ? data.event.message
-                : JSON.stringify(data.event.message);
-              setMessages(prev => [...prev, {
-                role: 'assistant',
-                content,
-                timestamp: data.timestamp
-              }]);
+              let content;
+              const msg = data.event.message;
+              if (typeof msg === 'string') {
+                content = msg;
+              } else if (msg.content && Array.isArray(msg.content)) {
+                content = msg.content
+                  .filter(block => block.type === 'text')
+                  .map(block => block.text)
+                  .join('\n');
+              } else {
+                content = JSON.stringify(msg);
+              }
+              if (content) {
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content,
+                  timestamp: data.timestamp
+                }]);
+              }
             }
 
             if (data.event?.type === 'permission_request') {
               setPendingPermission(data.event);
             }
 
-            if (data.event?.type === 'result' && data.event?.result) {
-              const content = typeof data.event.result === 'string'
-                ? data.event.result
-                : JSON.stringify(data.event.result);
-              setMessages(prev => [...prev, {
-                role: 'assistant',
-                content,
-                timestamp: data.timestamp,
-                isResult: true
-              }]);
-            }
+            // 'result' event is not added as a message — text already shown via 'assistant' event
             break;
 
           case 'user_message':
@@ -88,6 +93,9 @@ export function useWebSocket(sessionId) {
 
           case 'error':
             setStatus('error');
+            if (data.error) {
+              setErrorMessage(data.error);
+            }
             break;
         }
       } catch (e) {}
@@ -125,6 +133,7 @@ export function useWebSocket(sessionId) {
     messages,
     setMessages,
     status,
+    errorMessage,
     pendingPermission,
     streamEvents,
     sendMessage,

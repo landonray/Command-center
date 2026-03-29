@@ -205,23 +205,34 @@ class SessionProcess {
         this.status = 'working';
         this.updateDbStatus('working');
         if (event.message) {
-          const content = typeof event.message === 'string'
-            ? event.message
-            : JSON.stringify(event.message);
-          db.prepare(`
-            INSERT INTO messages (session_id, role, content, timestamp)
-            VALUES (?, 'assistant', ?, datetime('now'))
-          `).run(this.id, content);
-          db.prepare(`
-            UPDATE sessions SET
-              assistant_message_count = assistant_message_count + 1,
-              last_action_summary = ?,
-              last_activity_at = datetime('now')
-            WHERE id = ?
-          `).run(
-            content.substring(0, 200),
-            this.id
-          );
+          // Extract text content from the message object
+          let content;
+          if (typeof event.message === 'string') {
+            content = event.message;
+          } else if (event.message.content && Array.isArray(event.message.content)) {
+            content = event.message.content
+              .filter(block => block.type === 'text')
+              .map(block => block.text)
+              .join('\n');
+          } else {
+            content = JSON.stringify(event.message);
+          }
+          if (content) {
+            db.prepare(`
+              INSERT INTO messages (session_id, role, content, timestamp)
+              VALUES (?, 'assistant', ?, datetime('now'))
+            `).run(this.id, content);
+            db.prepare(`
+              UPDATE sessions SET
+                assistant_message_count = assistant_message_count + 1,
+                last_action_summary = ?,
+                last_activity_at = datetime('now')
+              WHERE id = ?
+            `).run(
+              content.substring(0, 200),
+              this.id
+            );
+          }
         }
         break;
 
@@ -289,15 +300,7 @@ class SessionProcess {
         break;
 
       case 'result':
-        if (event.result) {
-          const content = typeof event.result === 'string'
-            ? event.result
-            : JSON.stringify(event.result);
-          db.prepare(`
-            INSERT INTO messages (session_id, role, content, timestamp)
-            VALUES (?, 'assistant', ?, datetime('now'))
-          `).run(this.id, content);
-        }
+        // Don't insert message here — already handled by 'assistant' event
         // Process queued messages after this turn completes
         if (this.messageQueue.length > 0) {
           const nextMsg = this.messageQueue.shift();

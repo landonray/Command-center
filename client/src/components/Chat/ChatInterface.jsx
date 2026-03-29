@@ -14,7 +14,7 @@ export default function ChatInterface({ sessionId }) {
   const { sessions } = useApp();
   const session = sessions.find(s => s.id === sessionId);
   const {
-    messages, setMessages, status, pendingPermission,
+    messages, setMessages, status, errorMessage, pendingPermission,
     streamEvents, sendMessage, approvePermission
   } = useWebSocket(sessionId);
   const [input, setInput] = useState('');
@@ -38,9 +38,11 @@ export default function ChatInterface({ sessionId }) {
     loadMessages();
   }, [sessionId]);
 
+  const isDisabled = status === 'ended' || status === 'error';
+
   const handleSend = () => {
     const text = input.trim();
-    if (!text || status === 'ended') return;
+    if (!text || isDisabled) return;
 
     sendMessage(text);
     setInput('');
@@ -105,14 +107,20 @@ export default function ChatInterface({ sessionId }) {
             value={input}
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
-            placeholder={status === 'ended' ? 'Session has ended' : 'Send a message... (Enter to send, Shift+Enter for new line)'}
-            disabled={status === 'ended'}
+            placeholder={
+              status === 'error'
+                ? `Session failed to start: ${errorMessage || 'unknown error'}`
+                : status === 'ended'
+                  ? 'Session has ended'
+                  : 'Send a message... (Enter to send, Shift+Enter for new line)'
+            }
+            disabled={isDisabled}
             rows={1}
           />
           <button
             className={`btn btn-primary ${styles.sendBtn}`}
             onClick={handleSend}
-            disabled={!input.trim() || status === 'ended'}
+            disabled={!input.trim() || isDisabled}
           >
             {status === 'working' ? <Loader size={16} className="animate-spin" /> : <Send size={16} />}
           </button>

@@ -52,7 +52,7 @@ export default function MessageList({ messages, loading, streamEvents }) {
               )}
             </div>
             <div className={styles.text}>
-              {msg.content}
+              {typeof msg.content === 'string' ? msg.content.trim() : msg.content}
             </div>
             {msg.isResult && (
               <div className={styles.resultBadge}>Final Result</div>

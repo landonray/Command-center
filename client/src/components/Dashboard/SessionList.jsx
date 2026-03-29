@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { timeAgo, getContextHealthLevel } from '../../utils/format';
@@ -32,6 +32,21 @@ export default function SessionList() {
     navigate(`/session/${sessionId}`);
   };
 
+  const groupedSessions = useMemo(() => {
+    const groups = new Map();
+    for (const session of sessions) {
+      const project = session.project_name || 'Ungrouped';
+      if (!groups.has(project)) groups.set(project, []);
+      groups.get(project).push(session);
+    }
+    // Sort alphabetically, "Ungrouped" last
+    return [...groups.entries()].sort((a, b) => {
+      if (a[0] === 'Ungrouped') return 1;
+      if (b[0] === 'Ungrouped') return -1;
+      return a[0].localeCompare(b[0]);
+    });
+  }, [sessions]);
+
   return (
     <div className="panel">
       <div className="panel-header">
@@ -45,48 +60,53 @@ export default function SessionList() {
       </div>
 
       <div className="panel-body" style={{ padding: 0 }}>
-        {sessions.map(session => {
-          const StatusIcon = statusIcons[session.status] || Circle;
-          const contextLevel = getContextHealthLevel(session.context_window_usage || 0);
-          const isActive = session.id === activeId;
+        {groupedSessions.map(([projectName, projectSessions]) => (
+          <div key={projectName} className={styles.projectGroup}>
+            <div className={styles.projectHeader}>{projectName}</div>
+            {projectSessions.map(session => {
+              const StatusIcon = statusIcons[session.status] || Circle;
+              const contextLevel = getContextHealthLevel(session.context_window_usage || 0);
+              const isActive = session.id === activeId;
 
-          return (
-            <div
-              key={session.id}
-              className={`${styles.item} ${isActive ? styles.active : ''}`}
-              onClick={() => handleSelect(session.id)}
-            >
-              <div className={styles.header}>
-                <StatusIcon
-                  size={12}
-                  className={`status-${session.status}`}
-                  style={session.status === 'working' ? { animation: 'pulse 2s infinite' } : {}}
-                />
-                <span className={styles.name}>{session.name}</span>
-              </div>
+              return (
+                <div
+                  key={session.id}
+                  className={`${styles.item} ${isActive ? styles.active : ''}`}
+                  onClick={() => handleSelect(session.id)}
+                >
+                  <div className={styles.header}>
+                    <StatusIcon
+                      size={12}
+                      className={`status-${session.status}`}
+                      style={session.status === 'working' ? { animation: 'pulse 2s infinite' } : {}}
+                    />
+                    <span className={styles.name}>{session.name}</span>
+                  </div>
 
-              <div className={styles.meta}>
-                <div className={styles.contextDot}>
-                  <span
-                    className={styles.dot}
-                    style={{
-                      backgroundColor: contextLevel === 'light' ? 'var(--success)'
-                        : contextLevel === 'moderate' ? 'var(--warning)'
-                        : contextLevel === 'heavy' ? '#f97316'
-                        : 'var(--error)'
-                    }}
-                  />
-                  <span>{Math.round((session.context_window_usage || 0) * 100)}%</span>
+                  <div className={styles.meta}>
+                    <div className={styles.contextDot}>
+                      <span
+                        className={styles.dot}
+                        style={{
+                          backgroundColor: contextLevel === 'light' ? 'var(--success)'
+                            : contextLevel === 'moderate' ? 'var(--warning)'
+                            : contextLevel === 'heavy' ? '#f97316'
+                            : 'var(--error)'
+                        }}
+                      />
+                      <span>{Math.round((session.context_window_usage || 0) * 100)}%</span>
+                    </div>
+                    <span className={styles.time}>{timeAgo(session.last_activity_at)}</span>
+                  </div>
+
+                  {session.last_action_summary && (
+                    <p className={styles.summary}>{session.last_action_summary}</p>
+                  )}
                 </div>
-                <span className={styles.time}>{timeAgo(session.last_activity_at)}</span>
-              </div>
-
-              {session.last_action_summary && (
-                <p className={styles.summary}>{session.last_action_summary}</p>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
 
         {sessions.length === 0 && (
           <div className="empty-state" style={{ padding: '24px 16px' }}>
