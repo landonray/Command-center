@@ -7,7 +7,7 @@ const { setupWebSocket } = require('./websocket');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.SERVER_PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -24,6 +24,8 @@ app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/mcp', require('./routes/mcp'));
 app.use('/api/history', require('./routes/history'));
 app.use('/api/quality', require('./routes/quality'));
+app.use('/api/settings', require('./routes/settings'));
+app.use('/api/projects', require('./routes/projects'));
 
 // Health check
 app.get('/api/health', (req, res) => {
