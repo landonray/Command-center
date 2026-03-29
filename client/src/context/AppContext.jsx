@@ -9,6 +9,8 @@ const initialState = {
   presets: [],
   mcpServers: [],
   notificationSettings: null,
+  generalSettings: null,
+  pickerAvailable: false,
   connected: false,
   fileTree: null,
   fileTreePath: null,
@@ -39,6 +41,10 @@ function reducer(state, action) {
       return { ...state, mcpServers: action.payload };
     case 'SET_NOTIFICATION_SETTINGS':
       return { ...state, notificationSettings: action.payload };
+    case 'SET_GENERAL_SETTINGS':
+      return { ...state, generalSettings: action.payload };
+    case 'SET_PICKER_AVAILABLE':
+      return { ...state, pickerAvailable: action.payload };
     case 'SET_CONNECTED':
       return { ...state, connected: action.payload };
     case 'SET_FILE_TREE':
@@ -155,6 +161,20 @@ export function AppProvider({ children }) {
     } catch (e) {}
   }, []);
 
+  const loadGeneralSettings = useCallback(async () => {
+    try {
+      const settings = await api.get('/api/settings/general');
+      dispatch({ type: 'SET_GENERAL_SETTINGS', payload: settings });
+    } catch (e) {}
+  }, []);
+
+  const loadPickerAvailable = useCallback(async () => {
+    try {
+      const { available } = await api.get('/api/files/picker-available');
+      dispatch({ type: 'SET_PICKER_AVAILABLE', payload: available });
+    } catch (e) {}
+  }, []);
+
   const loadFileTree = useCallback(async (dirPath) => {
     try {
       const result = await api.get(`/api/files/tree?path=${encodeURIComponent(dirPath)}`);
@@ -168,6 +188,8 @@ export function AppProvider({ children }) {
     loadPresets();
     loadMcpServers();
     loadNotificationSettings();
+    loadGeneralSettings();
+    loadPickerAvailable();
 
     return () => {
       if (wsRef.current) wsRef.current.close();
@@ -183,6 +205,7 @@ export function AppProvider({ children }) {
     loadPresets,
     loadMcpServers,
     loadNotificationSettings,
+    loadGeneralSettings,
     loadFileTree,
     ws: wsRef
   };
