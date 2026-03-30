@@ -14,7 +14,7 @@ function resolveHome(p) {
   return p.replace(/^~/, process.env.HOME || '');
 }
 
-// GET /api/projects — scan projects_directory, return subdirs with matched preset
+// GET /api/projects — scan projects_directory, return subdirs
 router.get('/', (req, res) => {
   try {
     const settings = getSettings();
@@ -26,20 +26,12 @@ router.get('/', (req, res) => {
       return res.json([]);
     }
 
-    const db = getDb();
-    const presets = db.prepare('SELECT id, name, icon, working_directory FROM presets').all();
-
     const entries = fs.readdirSync(dir, { withFileTypes: true })
       .filter(e => e.isDirectory())
-      .map(e => {
-        const folderPath = path.join(dir, e.name);
-        const matched = presets.find(p => resolveHome(p.working_directory) === folderPath) || null;
-        return {
-          name: e.name,
-          path: folderPath,
-          preset: matched ? { id: matched.id, name: matched.name, icon: matched.icon } : null,
-        };
-      })
+      .map(e => ({
+        name: e.name,
+        path: path.join(dir, e.name),
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
     res.json(entries);

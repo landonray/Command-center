@@ -12,7 +12,7 @@ import styles from './NewSessionModal.module.css';
 export default function NewSessionModal({ onClose }) {
   const { loadSessions, generalSettings } = useApp();
   const navigate = useNavigate();
-  const [mode, setMode] = useState('preset');
+  const [mode, setMode] = useState('projects');
   const [view, setView] = useState('tabs'); // 'tabs' | 'create'
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
@@ -27,7 +27,7 @@ export default function NewSessionModal({ onClose }) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (mode === 'preset') {
+    if (mode === 'projects') {
       setProjectsLoading(true);
       api.get('/api/projects')
         .then(setProjects)
@@ -39,18 +39,13 @@ export default function NewSessionModal({ onClose }) {
   const handleProjectStart = async (project) => {
     setLoading(true);
     try {
-      let session;
-      if (project.preset) {
-        session = await api.post('/api/sessions', { presetId: project.preset.id, useWorktree, model });
-      } else {
-        session = await api.post('/api/sessions', {
-          name: project.name,
-          workingDirectory: project.path,
-          permissionMode: 'acceptEdits',
-          useWorktree,
-          model,
-        });
-      }
+      const session = await api.post('/api/sessions', {
+        name: project.name,
+        workingDirectory: project.path,
+        permissionMode: 'acceptEdits',
+        useWorktree,
+        model,
+      });
       await loadSessions();
       navigate(`/session/${session.id}`);
       onClose();
@@ -109,8 +104,8 @@ export default function NewSessionModal({ onClose }) {
           <>
             <div className={styles.tabs}>
               <button
-                className={`${styles.tab} ${mode === 'preset' ? styles.activeTab : ''}`}
-                onClick={() => setMode('preset')}
+                className={`${styles.tab} ${mode === 'projects' ? styles.activeTab : ''}`}
+                onClick={() => setMode('projects')}
               >
                 Projects
               </button>
@@ -152,7 +147,7 @@ export default function NewSessionModal({ onClose }) {
               />
             </div>
 
-            {mode === 'preset' && (
+            {mode === 'projects' && (
               <div className={styles.presetGrid}>
                 <button
                   className={`${styles.presetCard} ${styles.createCard}`}

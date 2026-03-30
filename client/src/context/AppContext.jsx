@@ -6,7 +6,6 @@ const AppContext = createContext();
 const initialState = {
   sessions: [],
   activeSessionId: null,
-  presets: [],
   mcpServers: [],
   notificationSettings: null,
   generalSettings: null,
@@ -35,8 +34,6 @@ function reducer(state, action) {
     }
     case 'SET_ACTIVE_SESSION':
       return { ...state, activeSessionId: action.payload };
-    case 'SET_PRESETS':
-      return { ...state, presets: action.payload };
     case 'SET_MCP_SERVERS':
       return { ...state, mcpServers: action.payload };
     case 'SET_NOTIFICATION_SETTINGS':
@@ -155,13 +152,6 @@ export function AppProvider({ children }) {
     } catch (e) {}
   }, []);
 
-  const loadPresets = useCallback(async () => {
-    try {
-      const presets = await api.get('/api/presets');
-      dispatch({ type: 'SET_PRESETS', payload: presets });
-    } catch (e) {}
-  }, []);
-
   const loadMcpServers = useCallback(async () => {
     try {
       const servers = await api.get('/api/mcp');
@@ -200,7 +190,6 @@ export function AppProvider({ children }) {
   useEffect(() => {
     connectWebSocket();
     loadSessions();
-    loadPresets();
     loadMcpServers();
     loadNotificationSettings();
     loadGeneralSettings();
@@ -217,7 +206,6 @@ export function AppProvider({ children }) {
     dispatch,
     sendWsMessage,
     loadSessions,
-    loadPresets,
     loadMcpServers,
     loadNotificationSettings,
     loadGeneralSettings,

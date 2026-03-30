@@ -1016,21 +1016,12 @@ function resumeSession(sessionId, newMessage) {
   // Build context preamble
   const preamble = buildContextPreamble(sessionId);
 
-  // Restore MCP connections from the original preset if available
-  let mcpConnections = [];
-  if (sessionRow.preset_id) {
-    const preset = db.prepare('SELECT mcp_connections FROM presets WHERE id = ?').get(sessionRow.preset_id);
-    if (preset && preset.mcp_connections) {
-      try { mcpConnections = JSON.parse(preset.mcp_connections); } catch (e) {}
-    }
-  }
-
   // Create a new SessionProcess for this session ID
   const session = new SessionProcess(sessionId, {
     workingDirectory: sessionRow.working_directory,
     permissionMode: sessionRow.permission_mode || 'acceptEdits',
     model: sessionRow.model || DEFAULT_MODEL,
-    mcpConnections,
+    mcpConnections: [],
     tmuxSessionName: null // new tmux session for resumed session
   });
 
@@ -1133,21 +1124,12 @@ function recoverTmuxSessions() {
 
     console.log(`  Recovering session ${sessionRow.id} (tmux: ${tmuxName})`);
 
-    // Restore MCP connections from preset if available
-    let mcpConnections = [];
-    if (sessionRow.preset_id) {
-      const preset = db.prepare('SELECT mcp_connections FROM presets WHERE id = ?').get(sessionRow.preset_id);
-      if (preset && preset.mcp_connections) {
-        try { mcpConnections = JSON.parse(preset.mcp_connections); } catch (e) {}
-      }
-    }
-
     // Create a SessionProcess and reconnect
     const session = new SessionProcess(sessionRow.id, {
       workingDirectory: sessionRow.working_directory,
       permissionMode: sessionRow.permission_mode || 'acceptEdits',
       model: sessionRow.model || DEFAULT_MODEL,
-      mcpConnections,
+      mcpConnections: [],
       tmuxSessionName: tmuxName
     });
 
@@ -1199,14 +1181,13 @@ function createSession(options = {}) {
   options.model = options.model || DEFAULT_MODEL;
 
   db.prepare(`
-    INSERT INTO sessions (id, name, status, working_directory, branch, preset_id, permission_mode, model, created_at, last_activity_at)
-    VALUES (?, ?, 'idle', ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    INSERT INTO sessions (id, name, status, working_directory, branch, permission_mode, model, created_at, last_activity_at)
+    VALUES (?, ?, 'idle', ?, ?, ?, ?, datetime('now'), datetime('now'))
   `).run(
     id,
     name,
     options.workingDirectory || null,
     options.branch || null,
-    options.presetId || null,
     options.permissionMode || 'acceptEdits',
     options.model || 'claude-opus-4-6'
   );

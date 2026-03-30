@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PresetsManager from '../Presets/PresetsManager';
 import NotificationSettings from '../Notifications/NotificationSettings';
 import McpManager from '../MCP/McpManager';
 import RulesConfig from '../Quality/RulesConfig';
-import { ArrowLeft, Sliders, Bell, Server, FolderOpen, Shield, BarChart3, Settings } from 'lucide-react';
+import { ArrowLeft, Sliders, Bell, Server, Shield, BarChart3, Settings } from 'lucide-react';
 import GeneralSettings from './GeneralSettings';
 import styles from './SettingsView.module.css';
 
 const sections = [
   { id: 'general', label: 'General', icon: Settings },
   { id: 'quality', label: 'Quality Rules', icon: Shield },
-  { id: 'presets', label: 'Presets', icon: FolderOpen },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'mcp', label: 'MCP Servers', icon: Server },
 ];
@@ -52,7 +50,6 @@ export default function SettingsView() {
         <div className={styles.content}>
           {activeSection === 'general' && <GeneralSettings />}
           {activeSection === 'quality' && <RulesConfig />}
-          {activeSection === 'presets' && <PresetsManager />}
           {activeSection === 'notifications' && <NotificationSettings />}
           {activeSection === 'mcp' && <McpManager />}
         </div>

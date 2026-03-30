@@ -29,11 +29,9 @@ function initializeSchema() {
       tool_call_count INTEGER DEFAULT 0,
       last_action_summary TEXT,
       last_activity_at TEXT,
-      preset_id TEXT,
       permission_mode TEXT DEFAULT 'acceptEdits',
       created_at TEXT DEFAULT (datetime('now')),
-      ended_at TEXT,
-      FOREIGN KEY (preset_id) REFERENCES presets(id)
+      ended_at TEXT
     );
 
     CREATE TABLE IF NOT EXISTS messages (
@@ -55,20 +53,6 @@ function initializeSchema() {
       files_modified TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (session_id) REFERENCES sessions(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS presets (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      description TEXT,
-      working_directory TEXT NOT NULL,
-      mcp_connections TEXT,
-      claude_md_path TEXT,
-      permission_mode TEXT DEFAULT 'acceptEdits',
-      initial_prompt TEXT,
-      icon TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS mcp_servers (
@@ -160,62 +144,7 @@ function initializeSchema() {
   try { db.exec('ALTER TABLE sessions ADD COLUMN tmux_session_name TEXT'); } catch (e) { /* column already exists */ }
   try { db.exec("ALTER TABLE sessions ADD COLUMN model TEXT DEFAULT 'claude-opus-4-6'"); } catch (e) { /* column already exists */ }
 
-  seedDefaultPresets();
   seedQualityRules();
-}
-
-function seedDefaultPresets() {
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO presets (id, name, description, working_directory, mcp_connections, permission_mode, initial_prompt, icon)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const presets = [
-    {
-      id: 'pages-agent',
-      name: 'Pages-Agent',
-      description: 'Pages-Agent repo with Ontraport MCP',
-      working_directory: '~/projects/pages-agent',
-      mcp_connections: JSON.stringify(['ontraport-mcp']),
-      permission_mode: 'acceptEdits',
-      initial_prompt: '',
-      icon: 'globe'
-    },
-    {
-      id: 'attestime',
-      name: 'AttesTime',
-      description: 'AttesTime project directory',
-      working_directory: '~/projects/attestime',
-      mcp_connections: null,
-      permission_mode: 'acceptEdits',
-      initial_prompt: '',
-      icon: 'clock'
-    },
-    {
-      id: 'autopilot',
-      name: 'Autopilot',
-      description: 'Autopilot project with Ontraport MCP',
-      working_directory: '~/projects/autopilot',
-      mcp_connections: JSON.stringify(['ontraport-mcp']),
-      permission_mode: 'acceptEdits',
-      initial_prompt: '',
-      icon: 'plane'
-    },
-    {
-      id: 'mcp-server',
-      name: 'MCP Server',
-      description: 'Ontraport MCP server repo',
-      working_directory: '~/projects/ontraport-mcp',
-      mcp_connections: null,
-      permission_mode: 'acceptEdits',
-      initial_prompt: '',
-      icon: 'server'
-    }
-  ];
-
-  for (const p of presets) {
-    insert.run(p.id, p.name, p.description, p.working_directory, p.mcp_connections, p.permission_mode, p.initial_prompt, p.icon);
-  }
 }
 
 function seedQualityRules() {
@@ -1095,7 +1024,7 @@ exit 0`,
     {
       id: 'directory-change-tracker',
       name: 'Directory Change Tracker',
-      description: 'Updates Mission Control\'s file browser when Claude changes working directories. Re-evaluates which project preset applies.',
+      description: 'Updates Mission Control\'s file browser when Claude changes working directories.',
       hook_type: 'command',
       fires_on: 'CwdChanged',
       severity: 'low',

@@ -23,7 +23,6 @@ recoverTmuxSessions();
 // API Routes
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/files', require('./routes/files'));
-app.use('/api/presets', require('./routes/presets'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/mcp', require('./routes/mcp'));
 app.use('/api/history', require('./routes/history'));

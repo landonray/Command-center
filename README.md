@@ -51,10 +51,6 @@ cp .env.example .env
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
 
-### Project Presets
-
-Default presets are seeded on first run (Pages-Agent, AttesTime, Autopilot, MCP Server). Custom presets can be created from the Settings UI.
-
 ### MCP Servers
 
 MCP server configurations are managed in Settings > MCP Servers. Servers flagged for auto-connect will be attached to every new session via `--mcp-config`.
@@ -73,7 +69,6 @@ Phase 5 Quality Rules Engine is configured in Settings > Quality Rules. Toggle r
 │   ├── routes/
 │   │   ├── sessions.js       # Session CRUD + messaging
 │   │   ├── files.js          # File tree, content, git ops
-│   │   ├── presets.js        # Project presets
 │   │   ├── notifications.js  # Push notification management
 │   │   ├── mcp.js            # MCP server configs
 │   │   ├── history.js        # Session history + digests
@@ -92,7 +87,6 @@ Phase 5 Quality Rules Engine is configured in Settings > Quality Rules. Toggle r
 │   │   │   ├── Quality/       # Rules config, scorecard, analytics
 │   │   │   ├── Layout/        # Desktop 3-panel + mobile tabs
 │   │   │   ├── Settings/      # Settings page
-│   │   │   ├── Presets/       # Preset management
 │   │   │   ├── Notifications/ # Push notification settings
 │   │   │   ├── History/       # Session history + digests
 │   │   │   └── MCP/           # MCP server management
