@@ -30,7 +30,8 @@ router.get('/', (req, res) => {
       ...s,
       project_name: projectName,
       isActive: !!activeInfo,
-      pendingPermission: activeInfo?.pendingPermission || null
+      pendingPermission: activeInfo?.pendingPermission || null,
+      archived: !!s.archived
     };
   });
 
@@ -137,6 +138,18 @@ router.post('/:id/resume', (req, res) => {
 
   session.resume();
   res.json({ success: true });
+});
+
+// Archive / unarchive session
+router.post('/:id/archive', (req, res) => {
+  const db = getDb();
+  const { archived } = req.body;
+  const value = archived ? 1 : 0;
+  const result = db.prepare('UPDATE sessions SET archived = ? WHERE id = ?').run(value, req.params.id);
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  res.json({ success: true, archived: value });
 });
 
 // End session

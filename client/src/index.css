@@ -74,7 +74,7 @@ a:hover {
 }
 
 /* Status badge colors */
-.status-working { color: var(--accent); }
+.status-working { color: var(--success); }
 .status-idle { color: var(--success); }
 .status-waiting { color: var(--warning); }
 .status-error { color: var(--error); }
@@ -206,8 +206,8 @@ textarea.input {
 }
 
 .badge-working {
-  background: rgba(56, 189, 248, 0.15);
-  color: var(--accent);
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--success);
 }
 .badge-idle {
   background: rgba(74, 222, 128, 0.15);
