@@ -256,10 +256,22 @@ class SessionProcess {
       // Kill existing tmux session if it exists (stale)
       try { execSync(`tmux kill-session -t ${tmuxName} 2>/dev/null`, { stdio: 'ignore' }); } catch (e) {}
 
-      // Create tmux session running the script. No user content touches the shell.
-      execSync(`tmux new-session -d -s ${tmuxName} ${scriptPath}`, {
+      // Create tmux session running the script. Quote scriptPath — it may contain spaces.
+      execSync(`tmux new-session -d -s ${tmuxName} "${scriptPath}"`, {
         stdio: 'ignore'
       });
+
+      // Verify the tmux session is actually running (it can exit immediately on failure
+      // while still returning exit code 0)
+      try {
+        execSync(`tmux has-session -t ${tmuxName} 2>/dev/null`);
+      } catch (e) {
+        console.error(`[Session ${this.id.slice(0, 8)}] Tmux session ${tmuxName} exited immediately, falling back to direct spawn`);
+        try { fs.unlinkSync(scriptPath); } catch (e2) {}
+        try { fs.unlinkSync(promptFile); } catch (e2) {}
+        await this.spawnDirectProcess(prompt);
+        return;
+      }
 
       // Mark process as running (sentinel object since there's no direct child process)
       this.process = { tmux: true, sessionName: tmuxName, killed: false };
@@ -418,6 +430,8 @@ class SessionProcess {
 
     this.process.stderr.on('data', (data) => {
       const text = data.toString();
+      // Filter out the stdin pipe warning — prompt is passed as CLI argument, not via stdin
+      if (text.includes('no stdin data received')) return;
       this.stderrBuffer += text;
       console.warn(`[Session ${this.id.slice(0, 8)}] stderr:`, text.trim());
       this.broadcast({

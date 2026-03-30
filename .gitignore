@@ -11,3 +11,5 @@ client/dist/
 .tmux-scripts/
 .settings-backup.json
 uploads/
+.claude/worktrees/
+docs/superpowers/
