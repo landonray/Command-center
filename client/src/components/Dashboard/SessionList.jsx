@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { api } from '../../utils/api';
 import { timeAgo, getContextHealthLevel, getContextHealthLabel } from '../../utils/format';
 import NewSessionModal from './NewSessionModal';
-import { Plus } from 'lucide-react';
+import { Plus, Archive, ArchiveRestore, Filter } from 'lucide-react';
 import styles from './SessionList.module.css';
 
 function renderLastAction(summary) {
@@ -23,6 +24,9 @@ function renderLastAction(summary) {
 export default function SessionList() {
   const { sessions, loadSessions, dispatch } = useApp();
   const [showNewSession, setShowNewSession] = useState(false);
+  const [showEnded, setShowEnded] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const navigate = useNavigate();
   const { id: activeId } = useParams();
 
@@ -37,9 +41,23 @@ export default function SessionList() {
     navigate(`/session/${sessionId}`);
   };
 
+  const handleArchive = async (e, sessionId, archived) => {
+    e.stopPropagation();
+    await api.post(`/api/sessions/${sessionId}/archive`, { archived });
+    loadSessions();
+  };
+
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(session => {
+      if (session.archived && !showArchived) return false;
+      if (session.status === 'ended' && !session.archived && !showEnded) return false;
+      return true;
+    });
+  }, [sessions, showEnded, showArchived]);
+
   const groupedSessions = useMemo(() => {
     const groups = new Map();
-    for (const session of sessions) {
+    for (const session of filteredSessions) {
       const project = session.project_name || 'Ungrouped';
       if (!groups.has(project)) groups.set(project, []);
       groups.get(project).push(session);
@@ -49,19 +67,58 @@ export default function SessionList() {
       if (b[0] === 'Ungrouped') return -1;
       return a[0].localeCompare(b[0]);
     });
-  }, [sessions]);
+  }, [filteredSessions]);
+
+  const endedCount = sessions.filter(s => s.status === 'ended' && !s.archived).length;
+  const archivedCount = sessions.filter(s => s.archived).length;
 
   return (
     <div className="panel">
       <div className="panel-header">
         <h2>Sessions</h2>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={() => setShowNewSession(true)}
-        >
-          <Plus size={14} /> New
-        </button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            className={`btn btn-ghost btn-sm ${showFilters ? styles.filterActive : ''}`}
+            onClick={() => setShowFilters(f => !f)}
+            title="Filter sessions"
+          >
+            <Filter size={14} />
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => setShowNewSession(true)}
+          >
+            <Plus size={14} /> New
+          </button>
+        </div>
       </div>
+
+      {showFilters && (
+        <div className={styles.filterBar}>
+          <label className={styles.filterToggle}>
+            <input
+              type="checkbox"
+              checked={showEnded}
+              onChange={e => setShowEnded(e.target.checked)}
+            />
+            <span className={styles.filterLabel}>
+              Ended
+              {endedCount > 0 && <span className={styles.filterCount}>{endedCount}</span>}
+            </span>
+          </label>
+          <label className={styles.filterToggle}>
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={e => setShowArchived(e.target.checked)}
+            />
+            <span className={styles.filterLabel}>
+              Archived
+              {archivedCount > 0 && <span className={styles.filterCount}>{archivedCount}</span>}
+            </span>
+          </label>
+        </div>
+      )}
 
       <div className="panel-body" style={{ padding: 0 }}>
         {groupedSessions.map(([projectName, projectSessions]) => (
@@ -72,17 +129,25 @@ export default function SessionList() {
               const contextPercent = Math.round((session.context_window_usage || 0) * 100);
               const isActive = session.id === activeId;
 
+              const cardClass = [
+                styles.card,
+                isActive ? styles.active : '',
+                session.status === 'working' ? styles.cardWorking : '',
+                session.status === 'waiting' ? styles.cardWaiting : '',
+                session.archived ? styles.cardArchived : '',
+              ].filter(Boolean).join(' ');
+
               return (
                 <div
                   key={session.id}
-                  className={`${styles.card} ${isActive ? styles.active : ''}`}
+                  className={cardClass}
                   onClick={() => handleSelect(session.id)}
                 >
                   <div className={styles.cardHeader}>
                     <span className={styles.statusDot} data-status={session.status} />
                     <span className={styles.cardName}>{session.name}</span>
-                    <span className={`badge badge-${session.status}`}>
-                      {session.status}
+                    <span className={`badge badge-${session.archived ? 'ended' : session.status}`}>
+                      {session.archived ? 'archived' : session.status}
                     </span>
                   </div>
 
@@ -137,6 +202,15 @@ export default function SessionList() {
 
                   <div className={styles.cardFooter}>
                     <span className={styles.sessionId}>{session.id.slice(0, 8)}</span>
+                    {(session.status === 'ended' || session.archived) && (
+                      <button
+                        className={styles.archiveBtn}
+                        onClick={(e) => handleArchive(e, session.id, !session.archived)}
+                        title={session.archived ? 'Unarchive session' : 'Archive session'}
+                      >
+                        {session.archived ? <ArchiveRestore size={12} /> : <Archive size={12} />}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -144,9 +218,11 @@ export default function SessionList() {
           </div>
         ))}
 
-        {sessions.length === 0 && (
+        {filteredSessions.length === 0 && (
           <div className="empty-state" style={{ padding: '24px 16px' }}>
-            <p style={{ fontSize: 13 }}>No sessions yet</p>
+            <p style={{ fontSize: 13 }}>
+              {sessions.length === 0 ? 'No sessions yet' : 'No sessions match filters'}
+            </p>
           </div>
         )}
       </div>

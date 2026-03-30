@@ -24,7 +24,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
 .card:hover {
@@ -36,6 +36,47 @@
   background: var(--bg-tertiary);
   border-color: var(--accent);
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* Running sessions: green throbbing outline */
+.cardWorking {
+  border-color: var(--success);
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.3);
+  animation: throbGreen 2s ease-in-out infinite;
+}
+
+.cardWorking.active {
+  border-color: var(--success);
+  box-shadow: inset 3px 0 0 var(--success), 0 0 6px rgba(74, 222, 128, 0.3);
+  animation: throbGreen 2s ease-in-out infinite;
+}
+
+/* Waiting sessions: yellow throbbing outline */
+.cardWaiting {
+  border-color: var(--warning);
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
+  animation: throbYellow 2s ease-in-out infinite;
+}
+
+.cardWaiting.active {
+  border-color: var(--warning);
+  box-shadow: inset 3px 0 0 var(--warning), 0 0 6px rgba(251, 191, 36, 0.3);
+  animation: throbYellow 2s ease-in-out infinite;
+}
+
+@keyframes throbGreen {
+  0%, 100% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(74, 222, 128, 0.5); }
+}
+
+@keyframes throbYellow {
+  0%, 100% { box-shadow: 0 0 4px rgba(251, 191, 36, 0.2); }
+  50% { box-shadow: 0 0 12px rgba(251, 191, 36, 0.5); }
+}
+
+/* Archived card dimmed */
+.cardArchived {
+  opacity: 0.6;
 }
 
 /* Card header: status dot + name + badge */
@@ -54,7 +95,7 @@
 }
 
 .statusDot[data-status="working"] {
-  background-color: var(--accent);
+  background-color: var(--success);
   animation: pulse 2s infinite;
 }
 .statusDot[data-status="idle"]    { background-color: var(--success); }
@@ -71,6 +112,53 @@
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+}
+
+/* Filter bar */
+.filterBar {
+  display: flex;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.filterToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.filterToggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.filterLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.filterCount {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.filterActive {
+  color: var(--accent) !important;
+  background: rgba(56, 189, 248, 0.1) !important;
 }
 
 /* Stats section */
@@ -146,6 +234,9 @@
   margin-top: 8px;
   padding-top: 6px;
   border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .sessionId {
@@ -153,4 +244,23 @@
   color: var(--text-muted);
   font-family: 'SF Mono', 'Fira Code', monospace;
   letter-spacing: 0.02em;
+}
+
+.archiveBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.archiveBtn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
 }
