@@ -12,4 +12,5 @@ client/dist/
 .settings-backup.json
 uploads/
 .claude/worktrees/
+.worktrees/
 docs/superpowers/
