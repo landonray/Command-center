@@ -601,10 +601,19 @@ class SessionProcess {
   }
 }
 
+const VALID_MODELS = ['claude-opus-4-6', 'claude-sonnet-4-6'];
+const DEFAULT_MODEL = 'claude-opus-4-6';
+
 function createSession(options = {}) {
   const db = getDb();
   const id = uuidv4();
   const name = options.name || `Session ${new Date().toLocaleString()}`;
+
+  // Validate and normalize model
+  if (options.model && !VALID_MODELS.includes(options.model)) {
+    throw new Error(`Invalid model "${options.model}". Must be one of: ${VALID_MODELS.join(', ')}`);
+  }
+  options.model = options.model || DEFAULT_MODEL;
 
   db.prepare(`
     INSERT INTO sessions (id, name, status, working_directory, branch, preset_id, permission_mode, model, created_at, last_activity_at)
@@ -651,5 +660,7 @@ module.exports = {
   getSession,
   getAllActiveSessions,
   endSession,
-  activeSessions
+  activeSessions,
+  VALID_MODELS,
+  DEFAULT_MODEL
 };

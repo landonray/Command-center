@@ -86,7 +86,7 @@ router.post('/', (req, res) => {
       branch,
       mcpConnections,
       useWorktree,
-      model: model || 'claude-opus-4-6'
+      model
     };
 
     // If preset is specified, load preset settings

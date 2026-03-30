@@ -103,6 +103,7 @@ export default function NewSessionModal({ onClose }) {
           <CreateProjectPanel
             onBack={() => setView('tabs')}
             onCreated={handleCreated}
+            model={model}
           />
         ) : (
           <>
