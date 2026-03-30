@@ -79,7 +79,7 @@ router.get('/:id', (req, res) => {
 // Create new session
 router.post('/', (req, res) => {
   try {
-    const { name, workingDirectory, presetId, permissionMode, initialPrompt, branch, mcpConnections } = req.body;
+    const { name, workingDirectory, presetId, permissionMode, initialPrompt, branch, mcpConnections, useWorktree, model } = req.body;
 
     let options = {
       name,
@@ -87,7 +87,9 @@ router.post('/', (req, res) => {
       permissionMode,
       initialPrompt,
       branch,
-      mcpConnections
+      mcpConnections,
+      useWorktree,
+      model
     };
 
     // If preset is specified, load preset settings
@@ -283,6 +285,25 @@ router.put('/:id/preview-url', (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
   res.json({ preview_url: url });
+});
+
+// Update working directory for a session (called by CwdChanged hook)
+router.post('/cwd-update', (req, res) => {
+  const db = getDb();
+  const { session_id, working_directory } = req.body;
+
+  if (!session_id || !working_directory) {
+    return res.status(400).json({ error: 'session_id and working_directory required' });
+  }
+
+  const result = db.prepare('UPDATE sessions SET working_directory = ?, last_activity_at = datetime(\'now\') WHERE id = ?')
+    .run(working_directory, session_id);
+
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Session not found' });
+  }
+
+  res.json({ success: true, working_directory });
 });
 
 module.exports = router;
