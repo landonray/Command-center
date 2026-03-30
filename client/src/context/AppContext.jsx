@@ -109,6 +109,12 @@ export function AppProvider({ children }) {
         }
         break;
       case 'session_status':
+        // Update global sessions list so components see status changes immediately
+        if (data.sessionId && data.status) {
+          dispatch({ type: 'UPDATE_SESSION', payload: { id: data.sessionId, status: data.status } });
+        }
+        // Also handled by session-specific listeners
+        break;
       case 'stream_event':
       case 'user_message':
       case 'session_ended':

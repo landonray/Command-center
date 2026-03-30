@@ -14,6 +14,12 @@ export default function PreviewPanel({ sessionId }) {
   const activeSession = sessions.find(s => s.id === sessionId);
   const sessionIsActive = activeSession && !['ended', 'error'].includes(activeSession.status);
 
+  // Reset local state when switching sessions
+  useEffect(() => {
+    setStarting(false);
+    setInputUrl('');
+  }, [sessionId]);
+
   const loadPreviewUrl = useCallback(async () => {
     if (!sessionId) return;
     try {
