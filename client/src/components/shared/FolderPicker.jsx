@@ -30,9 +30,13 @@ export default function FolderPicker({ value, onChange, placeholder = '~/project
 
   return (
     <div className={styles.pickerRow}>
-      <div className={`input ${styles.pathDisplay} ${!value ? styles.placeholder : ''}`}>
-        {value || placeholder}
-      </div>
+      <input
+        className={`input ${styles.pathInput}`}
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        disabled={disabled}
+      />
       <button
         type="button"
         className="btn btn-ghost btn-sm"
