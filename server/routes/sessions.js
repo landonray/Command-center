@@ -115,7 +115,7 @@ router.post('/:id/message', async (req, res) => {
 
     // Resume the session
     try {
-      session = resumeSession(req.params.id, req.body.content);
+      session = await resumeSession(req.params.id, req.body.content);
       if (!session) {
         return res.status(500).json({ error: 'Failed to resume session' });
       }
@@ -126,7 +126,7 @@ router.post('/:id/message', async (req, res) => {
   }
 
   try {
-    session.sendMessage(req.body.content);
+    await session.sendMessage(req.body.content);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -307,7 +307,8 @@ router.post('/cwd-update', async (req, res) => {
   }
 
   // Detect worktree name for worktree sessions
-  const session = db.prepare('SELECT use_worktree FROM sessions WHERE id = ?').get(session_id);
+  const sessionResult = await query('SELECT use_worktree FROM sessions WHERE id = $1', [session_id]);
+  const session = sessionResult.rows[0];
   if (session && session.use_worktree) {
     try {
       const resolvedDir = working_directory.replace(/^~/, process.env.HOME || '');
@@ -320,12 +321,12 @@ router.post('/cwd-update', async (req, res) => {
       const worktreeDir = worktreeName.replace(/^worktree\s+/, '');
       const name = path.basename(worktreeDir);
       if (name) {
-        db.prepare('UPDATE sessions SET worktree_name = ? WHERE id = ?').run(name, session_id);
+        await query('UPDATE sessions SET worktree_name = $1 WHERE id = $2', [name, session_id]);
       }
     } catch (e) {
       // Fall back to extracting name from directory path
       const name = path.basename(working_directory);
-      db.prepare('UPDATE sessions SET worktree_name = ? WHERE id = ?').run(name, session_id);
+      await query('UPDATE sessions SET worktree_name = $1 WHERE id = $2', [name, session_id]);
     }
   }
 
