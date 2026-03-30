@@ -79,6 +79,7 @@ class SessionProcess {
     this.tmuxSessionName = options.tmuxSessionName || null;
     this.outputTail = null; // file watcher for tmux output
     this.resuming = false; // true when restoring context for a resumed session
+    this.stderrBuffer = ''; // accumulates stderr for error reporting
   }
 
   addListener(callback) {
@@ -361,7 +362,21 @@ class SessionProcess {
   }
 
   async spawnDirectProcess(prompt) {
+    // Validate working directory exists before spawning
+    if (!fs.existsSync(this.workingDirectory)) {
+      const message = `Working directory not found: ${this.workingDirectory}`;
+      console.error(`[Session ${this.id.slice(0, 8)}] ${message}`);
+      this.status = 'error';
+      this.updateDbStatus('error');
+      this.errorMessage = message;
+      this.broadcast({ type: 'error', sessionId: this.id, error: message, timestamp: new Date().toISOString() });
+      return;
+    }
+
     const args = await this.buildArgs(prompt);
+    this.stderrBuffer = '';
+
+    console.log(`[Session ${this.id.slice(0, 8)}] Spawning claude`, args.slice(0, -1), 'cwd:', this.workingDirectory);
 
     this.process = spawn('claude', args, {
       cwd: this.workingDirectory,
@@ -390,6 +405,8 @@ class SessionProcess {
 
     this.process.stderr.on('data', (data) => {
       const text = data.toString();
+      this.stderrBuffer += text;
+      console.warn(`[Session ${this.id.slice(0, 8)}] stderr:`, text.trim());
       this.broadcast({
         type: 'stderr',
         sessionId: this.id,
@@ -400,7 +417,21 @@ class SessionProcess {
 
     this.process.on('close', (code) => {
       this.process = null;
-      if (this.status !== 'error') {
+
+      if (code !== 0 && this.status === 'working') {
+        // Process failed without setting error status — use stderr as message
+        const message = this.stderrBuffer.trim() || `claude process exited with code ${code}`;
+        console.error(`[Session ${this.id.slice(0, 8)}] Process failed (code ${code}): ${message}`);
+        this.status = 'error';
+        this.updateDbStatus('error');
+        this.errorMessage = message;
+        this.broadcast({
+          type: 'error',
+          sessionId: this.id,
+          error: message,
+          timestamp: new Date().toISOString()
+        });
+      } else if (this.status !== 'error') {
         this.status = 'idle';
         this.updateDbStatus('idle');
         this.broadcast({
@@ -422,9 +453,15 @@ class SessionProcess {
       this.process = null;
       this.status = 'error';
       this.updateDbStatus('error');
-      const message = err.code === 'ENOENT'
-        ? 'claude CLI not found. Install it with: npm install -g @anthropic-ai/claude-code'
-        : err.message;
+      let message;
+      if (err.code === 'ENOENT') {
+        message = !fs.existsSync(this.workingDirectory)
+          ? `Working directory not found: ${this.workingDirectory}`
+          : 'claude CLI not found. Install it with: npm install -g @anthropic-ai/claude-code';
+      } else {
+        message = err.message;
+      }
+      console.error(`[Session ${this.id.slice(0, 8)}] Spawn error:`, err.code, message);
       this.errorMessage = message;
       this.broadcast({
         type: 'error',
@@ -1150,7 +1187,7 @@ async function recoverTmuxSessions() {
 const VALID_MODELS = ['claude-opus-4-6', 'claude-sonnet-4-6'];
 const DEFAULT_MODEL = 'claude-opus-4-6';
 
-function createSession(options = {}) {
+async function createSession(options = {}) {
   const id = uuidv4();
   const name = options.name || 'New Session';
 
@@ -1159,11 +1196,11 @@ function createSession(options = {}) {
   }
   options.model = options.model || DEFAULT_MODEL;
 
-  query(
+  await query(
     `INSERT INTO sessions (id, name, status, working_directory, branch, permission_mode, model, use_worktree, created_at, last_activity_at)
      VALUES ($1, $2, 'idle', $3, $4, $5, $6, $7, NOW(), NOW())`,
     [id, name, options.workingDirectory || null, options.branch || null, options.permissionMode || 'acceptEdits', options.model || 'claude-opus-4-6', options.useWorktree ? 1 : 0]
-  ).catch(e => console.error('Failed to create session in DB:', e.message));
+  );
 
   const session = new SessionProcess(id, options);
   activeSessions.set(id, session);

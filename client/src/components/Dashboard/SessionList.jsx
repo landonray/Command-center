@@ -32,7 +32,7 @@ export default function SessionList() {
 
   useEffect(() => {
     loadSessions();
-    const interval = setInterval(loadSessions, 10000);
+    const interval = setInterval(loadSessions, 30000);
     return () => clearInterval(interval);
   }, [loadSessions]);
 

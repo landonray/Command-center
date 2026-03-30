@@ -85,7 +85,9 @@ async function initializeDb() {
 
   // Migrations — add columns that may not exist in older schemas
   const migrations = [
-    `ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments TEXT`
+    `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS use_worktree INTEGER DEFAULT 0`,
+    `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS worktree_name TEXT`,
+    `ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments TEXT`,
   ];
   for (const migration of migrations) {
     try { await sql.query(migration); } catch (e) { /* column may already exist */ }

@@ -149,7 +149,7 @@ async function handleMessage(ws, msg, state) {
           try {
             await session.sendMessage(msg.content, msg.attachments || null);
           } catch (err) {
-            console.error('sendMessage error:', err.message);
+            console.error(`[WS] sendMessage failed for ${msg.sessionId.slice(0, 8)}:`, err.message);
             safeSend(ws, {
               type: 'error',
               sessionId: msg.sessionId,

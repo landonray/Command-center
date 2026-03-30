@@ -37,6 +37,12 @@ router.get('/', async (req, res) => {
       s.status = 'ended';
     }
     const activeInfo = active.find(a => a.id === s.id);
+    // If session is active in memory, trust the in-memory status over DB
+    // This prevents oscillation when DB and memory disagree after recovery
+    if (activeInfo && s.status !== activeInfo.status) {
+      s.status = activeInfo.status;
+      query("UPDATE sessions SET status = $1 WHERE id = $2", [activeInfo.status, s.id]).catch(() => {});
+    }
     const projectName = s.working_directory
       ? path.basename(s.working_directory)
       : 'Ungrouped';
@@ -44,7 +50,7 @@ router.get('/', async (req, res) => {
       ...s,
       project_name: projectName,
       isActive: !!activeInfo,
-      pendingPermission: activeInfo?.pendingPermission || null,
+      pendingPermission: !!(activeInfo?.pendingPermission),
       archived: !!s.archived,
       resumable: s.status === 'ended' // All ended sessions are resumable
     });
@@ -80,7 +86,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new session
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, workingDirectory, permissionMode, initialPrompt, branch, mcpConnections, useWorktree, model } = req.body;
 
@@ -95,7 +101,7 @@ router.post('/', (req, res) => {
       model
     };
 
-    const session = createSession(options);
+    const session = await createSession(options);
     res.status(201).json(session);
   } catch (err) {
     res.status(500).json({ error: err.message });
