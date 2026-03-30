@@ -4,6 +4,7 @@ import SessionList from '../Dashboard/SessionList';
 import ChatInterface from '../Chat/ChatInterface';
 import FileBrowser from '../FileBrowser/FileBrowser';
 import PreviewPanel from '../PreviewPanel/PreviewPanel';
+import CliPanel from '../CliPanel/CliPanel';
 import PillSelector from '../common/PillSelector';
 import { useApp } from '../../context/AppContext';
 import { PanelRightClose, PanelRightOpen } from 'lucide-react';
@@ -12,6 +13,7 @@ import styles from './Layout.module.css';
 const RIGHT_PANEL_TABS = [
   { value: 'files', label: 'Files' },
   { value: 'preview', label: 'Preview' },
+  { value: 'cli', label: 'CLI' },
 ];
 
 const LEFT_DEFAULT = 280;
@@ -139,8 +141,10 @@ export default function Layout() {
             </div>
             {rightPanelMode === 'files' ? (
               <FileBrowser directory={activeSession?.working_directory} useWorktree={!!activeSession?.use_worktree} />
-            ) : (
+            ) : rightPanelMode === 'preview' ? (
               <PreviewPanel sessionId={sessionId} />
+            ) : (
+              <CliPanel sessionId={sessionId} />
             )}
           </>
         )}
