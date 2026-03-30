@@ -1,7 +1,12 @@
 export function timeAgo(dateString) {
   if (!dateString) return 'never';
 
-  const date = new Date(dateString.replace(' ', 'T') + 'Z');
+  let date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    date = new Date(dateString.replace(' ', 'T') + 'Z');
+  }
+  if (isNaN(date.getTime())) return 'never';
+
   const now = new Date();
   const seconds = Math.floor((now - date) / 1000);
 
@@ -15,7 +20,12 @@ export function timeAgo(dateString) {
 
 export function formatDate(dateString) {
   if (!dateString) return '';
-  return new Date(dateString.replace(' ', 'T') + 'Z').toLocaleString();
+  let date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    date = new Date(dateString.replace(' ', 'T') + 'Z');
+  }
+  if (isNaN(date.getTime())) return '';
+  return date.toLocaleString();
 }
 
 export function formatFileSize(bytes) {

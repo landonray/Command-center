@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { api } from '../../utils/api';
 import { timeAgo, getContextHealthLevel, getContextHealthLabel } from '../../utils/format';
 import NewSessionModal from './NewSessionModal';
-import { Plus, Archive, ArchiveRestore, Filter } from 'lucide-react';
+import { Plus, Archive, ArchiveRestore, Filter, GitBranch } from 'lucide-react';
 import styles from './SessionList.module.css';
 
 function renderLastAction(summary) {
@@ -124,6 +124,7 @@ export default function SessionList() {
         {groupedSessions.map(([projectName, projectSessions]) => (
           <div key={projectName} className={styles.projectGroup}>
             <div className={styles.projectHeader}>{projectName}</div>
+            <div className={styles.projectSessions}>
             {projectSessions.map(session => {
               const contextLevel = getContextHealthLevel(session.context_window_usage || 0);
               const contextPercent = Math.round((session.context_window_usage || 0) * 100);
@@ -149,7 +150,23 @@ export default function SessionList() {
                     <span className={`badge badge-${session.archived ? 'ended' : session.status}`}>
                       {session.archived ? 'archived' : session.status}
                     </span>
+                    {(session.status === 'ended' || session.archived) && (
+                      <button
+                        className={styles.archiveBtn}
+                        onClick={(e) => handleArchive(e, session.id, !session.archived)}
+                        title={session.archived ? 'Unarchive session' : 'Archive session'}
+                      >
+                        {session.archived ? <ArchiveRestore size={12} /> : <Archive size={12} />}
+                      </button>
+                    )}
                   </div>
+
+                  {(session.worktree_name || session.branch) && (
+                    <div className={styles.branchTag}>
+                      <GitBranch size={10} />
+                      {session.worktree_name || session.branch}
+                    </div>
+                  )}
 
                   <div className={styles.statsSection}>
                     <div className={styles.statRow}>
@@ -199,22 +216,10 @@ export default function SessionList() {
                       </div>
                     )}
                   </div>
-
-                  <div className={styles.cardFooter}>
-                    <span className={styles.sessionId}>{session.id.slice(0, 8)}</span>
-                    {(session.status === 'ended' || session.archived) && (
-                      <button
-                        className={styles.archiveBtn}
-                        onClick={(e) => handleArchive(e, session.id, !session.archived)}
-                        title={session.archived ? 'Unarchive session' : 'Archive session'}
-                      >
-                        {session.archived ? <ArchiveRestore size={12} /> : <Archive size={12} />}
-                      </button>
-                    )}
-                  </div>
                 </div>
               );
             })}
+            </div>
           </div>
         ))}
 

@@ -256,8 +256,8 @@ class SessionProcess {
       // Kill existing tmux session if it exists (stale)
       try { execSync(`tmux kill-session -t ${tmuxName} 2>/dev/null`, { stdio: 'ignore' }); } catch (e) {}
 
-      // Create tmux session running the script. Quote scriptPath — it may contain spaces.
-      execSync(`tmux new-session -d -s ${tmuxName} "${scriptPath}"`, {
+      // Create tmux session running the script via bash to handle spaces in path.
+      execSync(`tmux new-session -d -s ${tmuxName} "bash '${scriptPath}'"`, {
         stdio: 'ignore'
       });
 
