@@ -21,15 +21,47 @@ const initialState = {
 
 function reducer(state, action) {
   switch (action.type) {
-    case 'SET_SESSIONS':
-      return { ...state, sessions: action.payload };
+    case 'SET_SESSIONS': {
+      const incoming = action.payload;
+      const existingMap = new Map(state.sessions.map(s => [s.id, s]));
+      let anyChanged = incoming.length !== state.sessions.length;
+
+      const merged = incoming.map(newSession => {
+        const existing = existingMap.get(newSession.id);
+        if (!existing) { anyChanged = true; return newSession; }
+        const allKeys = new Set([...Object.keys(existing), ...Object.keys(newSession)]);
+        for (const key of allKeys) {
+          if (existing[key] !== newSession[key]) {
+            console.log(`[SET_SESSIONS] ${newSession.id.slice(0,8)} changed: ${key}`, existing[key], '→', newSession[key]);
+            anyChanged = true;
+            return newSession;
+          }
+        }
+        return existing;
+      });
+
+      if (!anyChanged) return state;
+      return { ...state, sessions: merged };
+    }
     case 'UPDATE_SESSION': {
-      const sessions = state.sessions.map(s =>
-        s.id === action.payload.id ? { ...s, ...action.payload } : s
-      );
-      if (!sessions.find(s => s.id === action.payload.id)) {
-        sessions.unshift(action.payload);
+      const payload = action.payload;
+      let found = false;
+      let changed = false;
+
+      const sessions = state.sessions.map(s => {
+        if (s.id !== payload.id) return s;
+        found = true;
+        const changedKeys = Object.keys(payload).filter(k => s[k] !== payload[k]);
+        if (changedKeys.length === 0) return s;
+        console.log(`[UPDATE_SESSION] ${payload.id.slice(0,8)} changed:`, changedKeys.map(k => `${k}: ${s[k]} → ${payload[k]}`));
+        changed = true;
+        return { ...s, ...payload };
+      });
+
+      if (!found) {
+        return { ...state, sessions: [payload, ...sessions] };
       }
+      if (!changed) return state;
       return { ...state, sessions };
     }
     case 'SET_ACTIVE_SESSION':

@@ -4,6 +4,7 @@ async function request(method, url, body = null) {
   const options = {
     method,
     headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
   };
 
   if (body) {

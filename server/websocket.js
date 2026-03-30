@@ -146,7 +146,15 @@ async function handleMessage(ws, msg, state) {
       if (msg.sessionId && msg.content) {
         let session = getSession(msg.sessionId);
         if (session) {
-          session.sendMessage(msg.content);
+          session.sendMessage(msg.content).catch(err => {
+            console.error(`[WS] sendMessage failed for ${msg.sessionId.slice(0, 8)}:`, err.message);
+            safeSend(ws, {
+              type: 'error',
+              sessionId: msg.sessionId,
+              error: `Failed to send message: ${err.message}`,
+              timestamp: new Date().toISOString()
+            });
+          });
         } else {
           // Session not in memory — attempt to resume it
           const { query: dbQuery } = require('./database');

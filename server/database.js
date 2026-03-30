@@ -83,6 +83,15 @@ async function initializeDb() {
     await sql.query(stmt);
   }
 
+  // Column migrations — ADD COLUMN IF NOT EXISTS ensures idempotent upgrades
+  const migrations = [
+    `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS use_worktree INTEGER DEFAULT 0`,
+    `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS worktree_name TEXT`,
+  ];
+  for (const m of migrations) {
+    await sql.query(m).catch(() => {}); // ignore if column already exists
+  }
+
   await seedQualityRules();
 }
 
