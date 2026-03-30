@@ -4,6 +4,49 @@ import styles from './CliPanel.module.css';
 
 const MAX_LINES = 5000;
 
+function formatStreamEvent(event) {
+  if (!event) return null;
+  switch (event.type) {
+    case 'assistant': {
+      const msg = event.message;
+      if (!msg) return null;
+      let text = '';
+      if (typeof msg === 'string') {
+        text = msg;
+      } else if (Array.isArray(msg.content)) {
+        text = msg.content.filter(b => b.type === 'text').map(b => b.text).join('');
+      } else if (typeof msg.content === 'string') {
+        text = msg.content;
+      }
+      if (!text.trim()) return null;
+      return { text: `Claude: ${text}`, variant: 'assistant' };
+    }
+    case 'tool_use': {
+      const name = event.tool || event.name || 'unknown';
+      let args = '';
+      if (event.input) {
+        const inp = event.input;
+        args = inp.command || inp.path || inp.file_path || inp.pattern || inp.description || JSON.stringify(inp).slice(0, 120);
+      }
+      return { text: `▶ ${name}${args ? `  ${args}` : ''}`, variant: 'tool' };
+    }
+    case 'tool_result': {
+      if (!event.content) return null;
+      const text = typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
+      const trimmed = text.trim().slice(0, 300);
+      if (!trimmed) return null;
+      return { text: `  ${trimmed}${text.length > 300 ? ' …' : ''}`, variant: 'result' };
+    }
+    case 'system':
+      if (event.subtype === 'init') return { text: `[session started]`, variant: 'muted' };
+      return null;
+    case 'result':
+      return { text: `[done]`, variant: 'muted' };
+    default:
+      return null;
+  }
+}
+
 export default function CliPanel({ sessionId }) {
   const [lines, setLines] = useState([]);
   const [atBottom, setAtBottom] = useState(true);
@@ -21,16 +64,26 @@ export default function CliPanel({ sessionId }) {
       ws.send(JSON.stringify({ type: 'subscribe_session', sessionId }));
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = (msg) => {
       try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'raw_output' || data.type === 'stderr') {
-          if (data.sessionId !== sessionId) return;
-          setLines(prev => {
-            const next = [...prev, { text: data.data, isStderr: data.type === 'stderr' }];
-            return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
-          });
+        const data = JSON.parse(msg.data);
+        if (data.sessionId !== sessionId) return;
+
+        let line = null;
+
+        if (data.type === 'raw_output') {
+          line = { text: data.data, variant: 'normal' };
+        } else if (data.type === 'stderr') {
+          line = { text: data.data, variant: 'stderr' };
+        } else if (data.type === 'stream_event') {
+          line = formatStreamEvent(data.event);
         }
+
+        if (!line) return;
+        setLines(prev => {
+          const next = [...prev, line];
+          return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
+        });
       } catch (e) {}
     };
 
@@ -93,7 +146,7 @@ export default function CliPanel({ sessionId }) {
             lines.map((line, i) => (
               <span
                 key={i}
-                className={`${styles.line}${line.isStderr ? ` ${styles.lineStderr}` : ''}`}
+                className={`${styles.line} ${styles[`line_${line.variant}`] || ''}`}
               >
                 {line.text}
               </span>
