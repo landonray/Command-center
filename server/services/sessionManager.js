@@ -762,11 +762,6 @@ class SessionProcess {
     const userMsgs = messages.filter(m => m.role === 'user');
     const assistantMsgs = messages.filter(m => m.role === 'assistant');
 
-    const keyActions = userMsgs
-      .map(m => m.content.substring(0, 100))
-      .slice(0, 10)
-      .join('; ');
-
     const filePattern = /(?:(?:created?|modified?|edited?|updated?|wrote|read)\s+)?(?:file\s+)?[`"']?([^\s`"']+\.[a-z]{1,6})[`"']?/gi;
     const filesModified = new Set();
     for (const msg of assistantMsgs) {
@@ -783,7 +778,16 @@ class SessionProcess {
       .map(m => `${m.role}: ${m.content.substring(0, 500)}`)
       .join('\n\n');
 
-    const summarizationPrompt = `Summarize this Claude Code session in 2-3 sentences. Focus on: what was accomplished, which files were changed, and what branch the work was on. Be concise and specific.\n\nTranscript:\n${transcript}`;
+    const summarizationPrompt = `Analyze this Claude Code session transcript and produce a JSON response with exactly two fields:
+
+1. "summary": A 2-3 sentence summary of what was accomplished, which files were changed, and what branch the work was on.
+
+2. "key_decisions": An array of strings (max 5) listing the most important directives, corrections, or architectural decisions the user made during the session. These are moments where the user steered the work — things like "use TypeScript instead of JavaScript", "don't modify the database schema", "always validate inputs first". Only include clear, explicit directives. If there are none, return an empty array.
+
+Respond with ONLY valid JSON, no markdown fences or other text.
+
+Transcript:
+${transcript}`;
 
     const cwd = this.workingDirectory || process.cwd();
 
@@ -797,15 +801,25 @@ class SessionProcess {
       timeout: 60000,
       cwd
     }, (err, stdout) => {
-      if (!err && stdout && stdout.trim().length > 20) {
-        this.saveSummary(db, stdout.trim(), keyActions, filesModified);
+      if (!err && stdout && stdout.trim().length > 10) {
+        try {
+          // Try to parse structured JSON response
+          const cleaned = stdout.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
+          const parsed = JSON.parse(cleaned);
+          const summaryText = parsed.summary || stdout.trim();
+          const keyDecisions = Array.isArray(parsed.key_decisions) ? parsed.key_decisions : [];
+          this.saveSummary(db, summaryText, JSON.stringify(keyDecisions), filesModified);
+        } catch (parseErr) {
+          // Claude returned plain text instead of JSON — use it as the summary
+          this.saveSummary(db, stdout.trim(), null, filesModified);
+        }
       } else {
-        this.saveFallbackSummary(db, messages, keyActions, filesModified);
+        this.saveFallbackSummary(db, messages, filesModified);
       }
     });
   }
 
-  saveFallbackSummary(db, messages, keyActions, filesModified) {
+  saveFallbackSummary(db, messages, filesModified) {
     const userMsgs = messages.filter(m => m.role === 'user');
     const assistantMsgs = messages.filter(m => m.role === 'assistant');
     const lastAssistant = assistantMsgs[assistantMsgs.length - 1];
@@ -817,7 +831,8 @@ class SessionProcess {
     if (lastAssistant) {
       parts.push(`Last response: ${lastAssistant.content.substring(0, 300)}`);
     }
-    this.saveSummary(db, parts.join(' '), keyActions, filesModified);
+    // No key_actions available in fallback mode
+    this.saveSummary(db, parts.join(' '), null, filesModified);
   }
 
   saveSummary(db, summaryText, keyActions, filesModified) {
@@ -864,51 +879,35 @@ function buildContextPreamble(sessionId) {
     parts.push(`The original task was: ${firstMessage.content.substring(0, 500)}`);
   }
 
-  // 3. Key decisions (user messages that contain directives)
-  const allUserMessages = db.prepare(`
-    SELECT content FROM messages
-    WHERE session_id = ? AND role = 'user'
-    ORDER BY timestamp ASC
-  `).all(sessionId);
-
-  // Filter for messages that look like explicit directives or corrections
-  // (require at least two signal words, or strong directive patterns)
-  const keyDecisions = allUserMessages
-    .filter(m => {
-      const lower = m.content.toLowerCase();
-      const signals = [
-        /\bdon'?t\b/.test(lower),
-        /\bmake sure\b/.test(lower),
-        /\balways\b/.test(lower),
-        /\bnever\b/.test(lower),
-        /\binstead\b/.test(lower),
-        /\bactually[,.]?\s/.test(lower),
-        /\bprefer\b/.test(lower),
-        /\bswitch to\b/.test(lower),
-        /\brequire(ment)?\b/.test(lower),
-        /\bmust\b/.test(lower),
-      ];
-      return signals.filter(Boolean).length >= 2;
-    })
-    .slice(0, 5)
-    .map(m => m.content.substring(0, 200));
-
-  if (keyDecisions.length > 0) {
-    parts.push(`Key decisions made: ${keyDecisions.join(' | ')}`);
-  }
-
-  // 4. Files modified
-  const summaryRecord = db.prepare(`
-    SELECT files_modified FROM session_summaries
+  // 3. Key decisions + 4. Files modified — both from session_summaries (single query)
+  const summaryDetails = db.prepare(`
+    SELECT key_actions, files_modified FROM session_summaries
     WHERE session_id = ? ORDER BY created_at DESC LIMIT 1
   `).get(sessionId);
-  if (summaryRecord && summaryRecord.files_modified) {
-    try {
-      const files = JSON.parse(summaryRecord.files_modified);
-      if (files.length > 0) {
-        parts.push(`Files modified: ${files.slice(0, 20).join(', ')}`);
+
+  if (summaryDetails) {
+    // Key decisions — extracted by Claude at session end
+    if (summaryDetails.key_actions) {
+      try {
+        const decisions = JSON.parse(summaryDetails.key_actions);
+        if (Array.isArray(decisions) && decisions.length > 0) {
+          parts.push(`Key decisions made:\n${decisions.map(d => `- ${d}`).join('\n')}`);
+        }
+      } catch (e) {
+        // key_actions may be legacy plain-text format — use as-is
+        parts.push(`Key decisions made: ${summaryDetails.key_actions}`);
       }
-    } catch (e) {}
+    }
+
+    // Files modified
+    if (summaryDetails.files_modified) {
+      try {
+        const files = JSON.parse(summaryDetails.files_modified);
+        if (files.length > 0) {
+          parts.push(`Files modified: ${files.slice(0, 20).join(', ')}`);
+        }
+      } catch (e) {}
+    }
   }
 
   // 5. Last 5 exchanges
