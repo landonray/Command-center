@@ -16,10 +16,6 @@ const RIGHT_PANEL_TABS = [
 
 const LEFT_DEFAULT = 280;
 const RIGHT_DEFAULT = 380;
-const LEFT_MIN = 200;
-const LEFT_MAX = 500;
-const RIGHT_MIN = 280;
-const RIGHT_MAX = 600;
 
 function readWidth(key, fallback) {
   const v = localStorage.getItem(key);
@@ -54,12 +50,10 @@ export default function Layout() {
       const delta = e.clientX - startX;
 
       if (dragging === 'left') {
-        const newWidth = Math.min(LEFT_MAX, Math.max(LEFT_MIN, startWidth + delta));
-        setLeftWidth(newWidth);
+        setLeftWidth(startWidth + delta);
       } else {
         // Right panel: dragging left increases width
-        const newWidth = Math.min(RIGHT_MAX, Math.max(RIGHT_MIN, startWidth - delta));
-        setRightWidth(newWidth);
+        setRightWidth(startWidth - delta);
       }
     };
 
