@@ -160,7 +160,7 @@ async function handleMessage(ws, msg, state) {
               timestamp: new Date().toISOString()
             });
 
-            const resumed = resumeSession(msg.sessionId, msg.content);
+            const resumed = await resumeSession(msg.sessionId, msg.content);
             if (resumed) {
               // Resubscribe to the new session process
               if (state.sessionUnsubscribe) state.sessionUnsubscribe();

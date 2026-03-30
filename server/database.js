@@ -51,12 +51,12 @@ async function initializeDb() {
       context_window_warning INTEGER DEFAULT 1, context_threshold REAL DEFAULT 0.8,
       daily_digest INTEGER DEFAULT 0
     )`,
-    `INSERT INTO notification_settings (id) VALUES (1) ON CONFLICT DO NOTHING`,
+    `INSERT INTO notification_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`,
     `CREATE TABLE IF NOT EXISTS app_settings (
       id INTEGER PRIMARY KEY CHECK (id = 1), projects_directory TEXT,
       github_username TEXT, setup_repo TEXT
     )`,
-    `INSERT INTO app_settings (id) VALUES (1) ON CONFLICT DO NOTHING`,
+    `INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`,
     `CREATE TABLE IF NOT EXISTS daily_digests (
       id SERIAL PRIMARY KEY, date TEXT NOT NULL UNIQUE,
       content TEXT NOT NULL, session_count INTEGER, created_at TEXT DEFAULT NOW()
