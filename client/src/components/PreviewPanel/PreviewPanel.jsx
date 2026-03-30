@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../utils/api';
-import { RotateCw, ExternalLink, Globe } from 'lucide-react';
+import { RotateCw, ExternalLink, Globe, Play, Loader } from 'lucide-react';
 import styles from './PreviewPanel.module.css';
 
 export default function PreviewPanel({ sessionId }) {
-  const { previewUrl, dispatch } = useApp();
+  const { previewUrl, dispatch, sendWsMessage, sessions } = useApp();
   const [inputUrl, setInputUrl] = useState('');
   const [iframeKey, setIframeKey] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const activeSession = sessions.find(s => s.id === sessionId);
+  const sessionIsActive = activeSession && !['ended', 'error'].includes(activeSession.status);
 
   const loadPreviewUrl = useCallback(async () => {
     if (!sessionId) return;
@@ -29,6 +33,7 @@ export default function PreviewPanel({ sessionId }) {
     if (previewUrl && previewUrl !== inputUrl) {
       setInputUrl(previewUrl);
       setIframeKey(k => k + 1);
+      setStarting(false);
     }
   }, [previewUrl]);
 
@@ -56,6 +61,18 @@ export default function PreviewPanel({ sessionId }) {
   const handleOpenExternal = () => {
     if (previewUrl) {
       window.open(previewUrl, '_blank');
+    }
+  };
+
+  const handleRunServer = async () => {
+    if (!sessionId) return;
+    setStarting(true);
+    try {
+      await api.post(`/api/sessions/${sessionId}/message`, {
+        text: 'Start the dev server for this project. Look at the project files to determine the correct command (e.g. npm run dev, npm start, python manage.py runserver, etc). Run it in the background so it stays running.'
+      });
+    } catch (e) {
+      setStarting(false);
     }
   };
 
@@ -98,10 +115,39 @@ export default function PreviewPanel({ sessionId }) {
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             title="App Preview"
           />
+        ) : starting ? (
+          <div className={styles.emptyState}>
+            <Loader size={48} strokeWidth={1} className={styles.spinner} />
+            <p className={styles.startingTitle}>Starting dev server...</p>
+            <p className={styles.startingSubtext}>
+              Detecting project type and launching server
+            </p>
+          </div>
         ) : (
           <div className={styles.emptyState}>
             <Globe size={48} strokeWidth={1} />
-            <p>Enter a URL above to preview your running app</p>
+            {sessionIsActive ? (
+              <>
+                <p className={styles.emptyTitle}>No server running</p>
+                <button
+                  className={styles.runButton}
+                  onClick={handleRunServer}
+                >
+                  <Play size={18} />
+                  Run Server
+                </button>
+                <p className={styles.emptyHint}>
+                  Or enter a URL above to preview a running app
+                </p>
+              </>
+            ) : (
+              <>
+                <p className={styles.emptyTitle}>No preview available</p>
+                <p className={styles.emptyHint}>
+                  Start a session and run a dev server, or enter a URL above
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
