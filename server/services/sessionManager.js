@@ -264,31 +264,32 @@ class SessionProcess {
           partialLine = lines.pop() || '';
 
           for (const line of lines) {
-            if (line.trim()) {
-              // Handle sentinel events from the tmux launch script
-              try {
-                const sentinel = JSON.parse(line.trim());
-                if (sentinel.type === '__process_exited__') {
-                  this.handleTmuxProcessExit();
-                  return;
-                }
-                if (sentinel.type === '__process_error__') {
-                  this.status = 'error';
-                  this.errorMessage = sentinel.error || 'Process failed to start';
-                  this.updateDbStatus('error');
-                  this.broadcast({
-                    type: 'error',
-                    sessionId: this.id,
-                    error: this.errorMessage,
-                    timestamp: new Date().toISOString()
-                  });
-                  return;
-                }
-              } catch (e) {
-                // Not a sentinel — continue to normal handling
-              }
-              this.handleOutputLine(line.trim());
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+
+            // Try to parse as JSON once — route sentinels vs normal events
+            let parsed = null;
+            try { parsed = JSON.parse(trimmed); } catch (e) {}
+
+            if (parsed && parsed.type === '__process_exited__') {
+              this.handleTmuxProcessExit();
+              return;
             }
+            if (parsed && parsed.type === '__process_error__') {
+              this.status = 'error';
+              this.errorMessage = parsed.error || 'Process failed to start';
+              this.updateDbStatus('error');
+              this.broadcast({
+                type: 'error',
+                sessionId: this.id,
+                error: this.errorMessage,
+                timestamp: new Date().toISOString()
+              });
+              return;
+            }
+
+            // Normal output — pass pre-parsed JSON to avoid double-parse
+            this.handleOutputLine(trimmed, parsed);
           }
         }
       } catch (e) {
@@ -407,14 +408,19 @@ class SessionProcess {
     });
   }
 
-  handleOutputLine(line) {
+  handleOutputLine(line, preParsed) {
     this.parseQualityResults(line);
     this.detectDevServerUrl(line);
 
-    try {
-      const event = JSON.parse(line);
+    // Use pre-parsed JSON if available (from tmux tail), otherwise parse
+    let event = preParsed;
+    if (!event) {
+      try { event = JSON.parse(line); } catch (e) {}
+    }
+
+    if (event) {
       this.processStreamEvent(event);
-    } catch (e) {
+    } else {
       this.broadcast({
         type: 'raw_output',
         sessionId: this.id,
@@ -634,12 +640,27 @@ class SessionProcess {
     });
   }
 
+  // Get the PID of the process running inside the tmux pane
+  getTmuxPanePid() {
+    try {
+      return parseInt(
+        execSync(`tmux display-message -p -t ${this.process.sessionName} '#{pane_pid}'`, {
+          encoding: 'utf-8'
+        }).trim()
+      );
+    } catch (e) {
+      return null;
+    }
+  }
+
   pause() {
     if (this.process && !this.process.killed) {
       if (this.process.tmux) {
-        try {
-          execSync(`tmux send-keys -t ${this.process.sessionName} C-z`, { stdio: 'ignore' });
-        } catch (e) {}
+        // Send SIGTSTP directly to the tmux pane's process (since exec replaced the shell)
+        const pid = this.getTmuxPanePid();
+        if (pid) {
+          try { process.kill(pid, 'SIGTSTP'); } catch (e) {}
+        }
       } else {
         this.process.kill('SIGTSTP');
       }
@@ -656,9 +677,11 @@ class SessionProcess {
   resume() {
     if (this.process) {
       if (this.process.tmux) {
-        try {
-          execSync(`tmux send-keys -t ${this.process.sessionName} 'fg' Enter`, { stdio: 'ignore' });
-        } catch (e) {}
+        // Send SIGCONT directly to the tmux pane's process
+        const pid = this.getTmuxPanePid();
+        if (pid) {
+          try { process.kill(pid, 'SIGCONT'); } catch (e) {}
+        }
       } else {
         this.process.kill('SIGCONT');
       }
@@ -770,7 +793,6 @@ class SessionProcess {
 
     if (messages.length === 0) return;
 
-    const userMsgs = messages.filter(m => m.role === 'user');
     const assistantMsgs = messages.filter(m => m.role === 'assistant');
 
     const filePattern = /(?:(?:created?|modified?|edited?|updated?|wrote|read)\s+)?(?:file\s+)?[`"']?([^\s`"']+\.[a-z]{1,6})[`"']?/gi;
@@ -940,7 +962,7 @@ function buildContextPreamble(sessionId) {
   let gitStatus = '';
   try {
     if (session.working_directory) {
-      const cwd = session.working_directory.replace(/^~/, process.env.HOME || '');
+      const cwd = resolvePath(session.working_directory);
       gitStatus = execSync('git status --short 2>/dev/null && echo "---" && git branch --show-current 2>/dev/null', {
         cwd,
         encoding: 'utf-8',
@@ -1007,6 +1029,7 @@ function resumeSession(sessionId, newMessage) {
   const session = new SessionProcess(sessionId, {
     workingDirectory: sessionRow.working_directory,
     permissionMode: sessionRow.permission_mode || 'acceptEdits',
+    model: sessionRow.model || DEFAULT_MODEL,
     mcpConnections,
     tmuxSessionName: null // new tmux session for resumed session
   });
@@ -1123,6 +1146,7 @@ function recoverTmuxSessions() {
     const session = new SessionProcess(sessionRow.id, {
       workingDirectory: sessionRow.working_directory,
       permissionMode: sessionRow.permission_mode || 'acceptEdits',
+      model: sessionRow.model || DEFAULT_MODEL,
       mcpConnections,
       tmuxSessionName: tmuxName
     });
