@@ -79,9 +79,9 @@ router.get('/:id', (req, res) => {
 // Create new session
 router.post('/', (req, res) => {
   try {
-    const { name, workingDirectory, presetId, permissionMode, initialPrompt, branch, mcpConnections, useWorktree, model } = req.body;
+    const { name, workingDirectory, permissionMode, initialPrompt, branch, mcpConnections, useWorktree, model } = req.body;
 
-    let options = {
+    const options = {
       name,
       workingDirectory,
       permissionMode,
@@ -91,23 +91,6 @@ router.post('/', (req, res) => {
       useWorktree,
       model
     };
-
-    // If preset is specified, load preset settings
-    if (presetId) {
-      const db = getDb();
-      const preset = db.prepare('SELECT * FROM presets WHERE id = ?').get(presetId);
-      if (preset) {
-        options = {
-          ...options,
-          name: name || preset.name,
-          workingDirectory: workingDirectory || preset.working_directory,
-          permissionMode: permissionMode || preset.permission_mode,
-          initialPrompt: initialPrompt || preset.initial_prompt,
-          mcpConnections: preset.mcp_connections ? JSON.parse(preset.mcp_connections) : [],
-          presetId
-        };
-      }
-    }
 
     const session = createSession(options);
     res.status(201).json(session);
