@@ -4,14 +4,7 @@
   align-items: center;
 }
 
-.pathDisplay {
+.pathInput {
   flex: 1;
-  cursor: default;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.placeholder {
-  opacity: 0.4;
+  min-width: 0;
 }
