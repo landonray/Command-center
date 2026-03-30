@@ -757,6 +757,7 @@ CWD="\${SESSION_CWD:-$(pwd)}"
 # Get git stats
 BRANCH=$(cd "$CWD" 2>/dev/null && git branch --show-current 2>/dev/null || echo "unknown")
 CHANGED_FILES=$(cd "$CWD" 2>/dev/null && git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')
+CHANGED_FILES="\${CHANGED_FILES:-0}"
 
 # Push summary to Mission Control
 curl -s -X POST http://localhost:3000/api/history/auto-summary \\
@@ -874,9 +875,10 @@ echo "Tool $TOOL failed: $ERROR"
 
 # Send push notification for critical failures
 if echo "$TOOL" | grep -qiE '(test|build|deploy)'; then
+  SAFE_TOOL=$(echo "$TOOL" | sed 's/["\\\\/]/ /g' | head -c 100)
   curl -s -X POST http://localhost:3000/api/notifications/push \\
     -H "Content-Type: application/json" \\
-    -d "{\\"title\\":\\"Tool Failure\\",\\"body\\":\\"$TOOL failed in session $SID\\",\\"type\\":\\"error\\"}" > /dev/null 2>&1
+    -d "{\\"title\\":\\"Tool Failure\\",\\"body\\":\\"$SAFE_TOOL failed\\",\\"type\\":\\"error\\"}" > /dev/null 2>&1
 fi
 
 exit 1`,
@@ -944,8 +946,8 @@ SID="\${SESSION_ID:-\${CLAUDE_SESSION_ID:-unknown}}"
 NOTIFICATION_TYPE="\${NOTIFICATION_TYPE:-info}"
 NOTIFICATION_MESSAGE="\${NOTIFICATION_MESSAGE:-Claude Code notification}"
 
-# Truncate message for push notification
-BODY=$(echo "$NOTIFICATION_MESSAGE" | head -c 200)
+# Truncate and sanitize message for JSON
+BODY=$(echo "$NOTIFICATION_MESSAGE" | sed 's/["\\\\/]/ /g' | head -c 200)
 
 curl -s -X POST http://localhost:3000/api/notifications/push \\
   -H "Content-Type: application/json" \\
@@ -1102,10 +1104,13 @@ exit 0`,
 SID="\${SESSION_ID:-\${CLAUDE_SESSION_ID:-unknown}}"
 NEW_CWD="\${NEW_CWD:-$(pwd)}"
 
+# Sanitize path for JSON safety
+SAFE_CWD=$(echo "$NEW_CWD" | sed 's/["\\\\/]/\\\\&/g')
 curl -s -X POST http://localhost:3000/api/sessions/cwd-update \\
   -H "Content-Type: application/json" \\
-  -d "{\\"session_id\\":\\"$SID\\",\\"working_directory\\":\\"$NEW_CWD\\"}" > /dev/null 2>&1
+  -d "{\\"session_id\\":\\"$SID\\",\\"working_directory\\":\\"$SAFE_CWD\\"}" > /dev/null 2>&1
 
+echo "Working directory changed to: $NEW_CWD"
 exit 0`,
       config: null,
       category: 'workspace',
@@ -1281,10 +1286,11 @@ TEAMMATE_STATUS="\${TEAMMATE_STATUS:-idle}"
 
 echo "Teammate $TEAMMATE_ID is now $TEAMMATE_STATUS"
 
-# Send push notification
+# Send push notification - sanitize for JSON safety
+SAFE_ID=$(echo "$TEAMMATE_ID" | sed 's/["\\\\/]/ /g' | head -c 100)
 curl -s -X POST http://localhost:3000/api/notifications/push \\
   -H "Content-Type: application/json" \\
-  -d "{\\"title\\":\\"Team Update\\",\\"body\\":\\"Teammate $TEAMMATE_ID is now $TEAMMATE_STATUS\\",\\"type\\":\\"info\\",\\"session_id\\":\\"$SID\\"}" > /dev/null 2>&1
+  -d "{\\"title\\":\\"Team Update\\",\\"body\\":\\"Teammate $SAFE_ID is now $TEAMMATE_STATUS\\",\\"type\\":\\"info\\",\\"session_id\\":\\"$SID\\"}" > /dev/null 2>&1
 
 exit 0`,
       config: null,
