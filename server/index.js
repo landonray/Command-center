@@ -57,7 +57,7 @@ server.listen(PORT, '0.0.0.0', () => {
 function shutdown(signal) {
   console.log(`\n${signal} received. Shutting down gracefully...`);
 
-  const { activeSessions, tmuxAvailable } = require('./services/sessionManager');
+  const { activeSessions } = require('./services/sessionManager');
 
   // Detach from active sessions without killing them
   // Tmux sessions survive server restarts; direct-process sessions get ended

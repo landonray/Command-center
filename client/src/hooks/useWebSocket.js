@@ -8,6 +8,8 @@ export function useWebSocket(sessionId) {
   const [streamEvents, setStreamEvents] = useState([]);
   const [resuming, setResuming] = useState(false);
   const wsRef = useRef(null);
+  // Ref to track resuming state inside the WS closure (avoids stale closure)
+  const resumingRef = useRef(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -36,13 +38,15 @@ export function useWebSocket(sessionId) {
             break;
 
           case 'session_resuming':
+            resumingRef.current = true;
             setResuming(true);
             setStatus('working');
             break;
 
           case 'stream_event':
             // First stream event after resume means context is restored
-            if (resuming) {
+            if (resumingRef.current) {
+              resumingRef.current = false;
               setResuming(false);
             }
             setStatus(data.status);
@@ -90,6 +94,7 @@ export function useWebSocket(sessionId) {
 
           case 'session_ended':
             setStatus('ended');
+            resumingRef.current = false;
             setResuming(false);
             break;
 
@@ -103,6 +108,7 @@ export function useWebSocket(sessionId) {
 
           case 'error':
             setStatus('error');
+            resumingRef.current = false;
             setResuming(false);
             if (data.error) {
               setErrorMessage(data.error);

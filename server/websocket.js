@@ -7,8 +7,13 @@ function setupWebSocket(server) {
   const wss = new WebSocket.Server({ server, path: '/ws' });
 
   wss.on('connection', (ws) => {
-    let sessionUnsubscribe = null;
-    let watchedDirs = new Set();
+    // Mutable state object shared between all handlers for this connection.
+    // Using an object (not bare variables) so handleMessage can mutate it
+    // and the changes are visible to the close handler and future messages.
+    const state = {
+      sessionUnsubscribe: null,
+      watchedDirs: new Set()
+    };
 
     ws.isAlive = true;
     ws.on('pong', () => { ws.isAlive = true; });
@@ -16,19 +21,17 @@ function setupWebSocket(server) {
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        handleMessage(ws, msg, { sessionUnsubscribe, watchedDirs });
+        handleMessage(ws, msg, state);
 
-        // Update closure references
         if (msg.type === 'subscribe_session') {
           const session = getSession(msg.sessionId);
           if (session) {
-            if (sessionUnsubscribe) sessionUnsubscribe();
-            sessionUnsubscribe = session.addListener((event) => {
+            if (state.sessionUnsubscribe) state.sessionUnsubscribe();
+            state.sessionUnsubscribe = session.addListener((event) => {
               safeSend(ws, event);
               handleNotifications(event);
             });
 
-            // Send current status
             safeSend(ws, {
               type: 'session_status',
               sessionId: msg.sessionId,
@@ -45,7 +48,7 @@ function setupWebSocket(server) {
               type: 'session_status',
               sessionId: msg.sessionId,
               status: dbSession ? dbSession.status : 'ended',
-              resumable: true, // Ended sessions can be resumed by sending a message
+              resumable: true,
               timestamp: new Date().toISOString()
             });
           }
@@ -56,8 +59,8 @@ function setupWebSocket(server) {
     });
 
     ws.on('close', () => {
-      if (sessionUnsubscribe) sessionUnsubscribe();
-      for (const dir of watchedDirs) {
+      if (state.sessionUnsubscribe) state.sessionUnsubscribe();
+      for (const dir of state.watchedDirs) {
         unwatchDirectory(dir);
       }
     });

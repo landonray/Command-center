@@ -2,10 +2,17 @@ const { spawn, execSync, execFile } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 const treeKill = require('tree-kill');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { getDb } = require('../database');
 
 const activeSessions = new Map();
+
+// Resolve ~ to home directory (shell and Node spawn don't expand ~ in all contexts)
+function resolvePath(p) {
+  if (!p) return process.cwd();
+  return p.replace(/^~(?=$|\/)/, os.homedir());
+}
 
 // Check if tmux is available on the system
 let tmuxAvailable = false;
@@ -16,10 +23,12 @@ try {
   console.warn('WARNING: tmux not found. Sessions will not survive server restarts.');
 }
 
-// Directory for tmux output files
+// Directory for tmux output files and launch scripts
 const TMUX_OUTPUT_DIR = path.join(__dirname, '..', '..', '.tmux-outputs');
+const TMUX_SCRIPTS_DIR = path.join(__dirname, '..', '..', '.tmux-scripts');
 if (tmuxAvailable) {
   try { fs.mkdirSync(TMUX_OUTPUT_DIR, { recursive: true }); } catch (e) {}
+  try { fs.mkdirSync(TMUX_SCRIPTS_DIR, { recursive: true }); } catch (e) {}
 }
 
 class SessionProcess {
@@ -29,7 +38,7 @@ class SessionProcess {
     this.outputBuffer = '';
     this.status = 'idle';
     this.listeners = new Set();
-    this.workingDirectory = options.workingDirectory || process.cwd();
+    this.workingDirectory = resolvePath(options.workingDirectory);
     this.permissionMode = options.permissionMode || 'acceptEdits';
     this.mcpConnections = options.mcpConnections || [];
     this.initialPrompt = options.initialPrompt || null;
@@ -146,33 +155,62 @@ class SessionProcess {
     }
   }
 
+  getScriptFilePath() {
+    return path.join(TMUX_SCRIPTS_DIR, `${this.id}.sh`);
+  }
+
+  getPromptFilePath() {
+    return path.join(TMUX_SCRIPTS_DIR, `${this.id}.prompt`);
+  }
+
   spawnTmuxProcess(prompt) {
     const tmuxName = this.getTmuxName();
     const outputFile = this.getOutputFilePath();
+    const stderrFile = outputFile + '.stderr';
     const args = this.buildArgs(prompt);
 
     // Ensure output file exists
     try { fs.writeFileSync(outputFile, '', { flag: 'a' }); } catch (e) {}
 
-    // Build the claude command. We pipe stdout to a file so Mission Control can tail it.
-    const escapedArgs = args.map(a => {
-      // Shell-escape each argument
-      return `'${a.replace(/'/g, "'\\''")}'`;
-    }).join(' ');
+    // Write the prompt to a file to completely avoid shell interpretation.
+    const promptFile = this.getPromptFilePath();
+    fs.writeFileSync(promptFile, prompt, { mode: 0o600 });
 
-    const cwd = this.workingDirectory || process.cwd();
-    const claudeCmd = `cd '${cwd.replace(/'/g, "'\\''")}' && FORCE_COLOR=0 claude ${escapedArgs} >> '${outputFile.replace(/'/g, "'\\''")}' 2>&1; echo '{"type":"__process_exited__"}' >> '${outputFile.replace(/'/g, "'\\''")}'`;
+    // Write a self-contained launch script. No user content is embedded
+    // in the script — the prompt is read from the prompt file at runtime.
+    const cwd = this.workingDirectory;
+    const scriptPath = this.getScriptFilePath();
+    const cliArgs = args.slice(0, -1); // everything except the final prompt arg
+
+    const scriptLines = [
+      '#!/usr/bin/env bash',
+      `OUTPUT_FILE=${JSON.stringify(outputFile)}`,
+      `PROMPT_FILE=${JSON.stringify(promptFile)}`,
+      '',
+      `cd ${JSON.stringify(cwd)} 2>/dev/null || {`,
+      `  echo '{"type":"__process_error__","error":"Working directory not found"}' >> "$OUTPUT_FILE"`,
+      `  echo '{"type":"__process_exited__"}' >> "$OUTPUT_FILE"`,
+      `  exit 1`,
+      `}`,
+      '',
+      `export FORCE_COLOR=0`,
+      `PROMPT="$(cat "$PROMPT_FILE")"`,
+      `claude ${cliArgs.map(a => JSON.stringify(a)).join(' ')} "$PROMPT" >> "$OUTPUT_FILE" 2>${JSON.stringify(stderrFile)}`,
+      `echo '{"type":"__process_exited__"}' >> "$OUTPUT_FILE"`,
+    ];
+
+    fs.writeFileSync(scriptPath, scriptLines.join('\n') + '\n', { mode: 0o755 });
 
     try {
       // Kill existing tmux session if it exists (stale)
       try { execSync(`tmux kill-session -t ${tmuxName} 2>/dev/null`, { stdio: 'ignore' }); } catch (e) {}
 
-      // Create new tmux session running the claude command
-      execSync(`tmux new-session -d -s ${tmuxName} "${claudeCmd.replace(/"/g, '\\"')}"`, {
+      // Create tmux session running the script. No user content touches the shell.
+      execSync(`tmux new-session -d -s ${tmuxName} ${scriptPath}`, {
         stdio: 'ignore'
       });
 
-      // Mark process as running (we use a sentinel object since there's no direct child process)
+      // Mark process as running (sentinel object since there's no direct child process)
       this.process = { tmux: true, sessionName: tmuxName, killed: false };
 
       // Start tailing the output file
@@ -180,6 +218,9 @@ class SessionProcess {
 
     } catch (err) {
       console.error(`Failed to create tmux session ${tmuxName}:`, err.message);
+      // Clean up script/prompt files
+      try { fs.unlinkSync(scriptPath); } catch (e) {}
+      try { fs.unlinkSync(promptFile); } catch (e) {}
       // Fall back to direct spawning
       this.spawnDirectProcess(prompt);
     }
@@ -213,10 +254,27 @@ class SessionProcess {
 
           for (const line of lines) {
             if (line.trim()) {
-              if (line.trim() === '{"type":"__process_exited__"}') {
-                // Process exited inside tmux
-                this.handleTmuxProcessExit();
-                return;
+              // Handle sentinel events from the tmux launch script
+              try {
+                const sentinel = JSON.parse(line.trim());
+                if (sentinel.type === '__process_exited__') {
+                  this.handleTmuxProcessExit();
+                  return;
+                }
+                if (sentinel.type === '__process_error__') {
+                  this.status = 'error';
+                  this.errorMessage = sentinel.error || 'Process failed to start';
+                  this.updateDbStatus('error');
+                  this.broadcast({
+                    type: 'error',
+                    sessionId: this.id,
+                    error: this.errorMessage,
+                    timestamp: new Date().toISOString()
+                  });
+                  return;
+                }
+              } catch (e) {
+                // Not a sentinel — continue to normal handling
               }
               this.handleOutputLine(line.trim());
             }
@@ -312,6 +370,12 @@ class SessionProcess {
           status: 'idle',
           timestamp: new Date().toISOString()
         });
+      }
+
+      // Drain message queue (matches tmux behavior)
+      if (this.messageQueue.length > 0) {
+        const nextMsg = this.messageQueue.shift();
+        setTimeout(() => this.sendMessage(nextMsg), 100);
       }
     });
 
@@ -526,18 +590,25 @@ class SessionProcess {
   respondToPermission(approved) {
     if (!this.process || !this.pendingPermission) return;
 
+    const response = JSON.stringify({
+      type: 'permission_response',
+      id: this.pendingPermission.id || this.pendingPermission.tool_use_id,
+      approved
+    });
+
     if (this.process.tmux) {
-      // For tmux sessions, send the permission response via tmux send-keys
-      // This won't work with stream-json permission flow in tmux mode
-      // since we don't have direct stdin access. For now, we log a warning.
-      console.warn('Permission responses in tmux mode are not yet fully supported.');
+      // For tmux sessions, write the response to the pane's stdin via send-keys.
+      // We write the JSON followed by Enter to simulate stdin input.
+      // tmux send-keys -l sends literal characters (no key name interpretation).
+      try {
+        execSync(`tmux send-keys -t ${this.process.sessionName} -l ${JSON.stringify(response + '\n')}`, {
+          stdio: 'ignore'
+        });
+      } catch (e) {
+        console.error(`Failed to send permission response to tmux session: ${e.message}`);
+      }
     } else {
-      const response = JSON.stringify({
-        type: 'permission_response',
-        id: this.pendingPermission.id || this.pendingPermission.tool_use_id,
-        approved
-      }) + '\n';
-      this.process.stdin.write(response);
+      this.process.stdin.write(response + '\n');
     }
 
     this.pendingPermission = null;
@@ -627,6 +698,20 @@ class SessionProcess {
       timestamp: new Date().toISOString()
     });
     this.generateSummary();
+    this.cleanupTmuxFiles();
+  }
+
+  cleanupTmuxFiles() {
+    // Remove temporary script, prompt, and output files
+    const files = [
+      this.getScriptFilePath(),
+      this.getPromptFilePath(),
+      this.getOutputFilePath(),
+      this.getOutputFilePath() + '.stderr',
+    ];
+    for (const f of files) {
+      try { fs.unlinkSync(f); } catch (e) {}
+    }
   }
 
   updateDbStatus(status) {
@@ -786,14 +871,24 @@ function buildContextPreamble(sessionId) {
     ORDER BY timestamp ASC
   `).all(sessionId);
 
+  // Filter for messages that look like explicit directives or corrections
+  // (require at least two signal words, or strong directive patterns)
   const keyDecisions = allUserMessages
     .filter(m => {
       const lower = m.content.toLowerCase();
-      return lower.includes('instead') || lower.includes('actually') ||
-        lower.includes('change') || lower.includes('don\'t') ||
-        lower.includes('make sure') || lower.includes('always') ||
-        lower.includes('never') || lower.includes('use ') ||
-        lower.includes('switch') || lower.includes('prefer');
+      const signals = [
+        /\bdon'?t\b/.test(lower),
+        /\bmake sure\b/.test(lower),
+        /\balways\b/.test(lower),
+        /\bnever\b/.test(lower),
+        /\binstead\b/.test(lower),
+        /\bactually[,.]?\s/.test(lower),
+        /\bprefer\b/.test(lower),
+        /\bswitch to\b/.test(lower),
+        /\brequire(ment)?\b/.test(lower),
+        /\bmust\b/.test(lower),
+      ];
+      return signals.filter(Boolean).length >= 2;
     })
     .slice(0, 5)
     .map(m => m.content.substring(0, 200));
@@ -855,19 +950,54 @@ function buildContextPreamble(sessionId) {
 
 // --- Resume a closed session ---
 
+// Guard against concurrent resume calls for the same session
+const resumeInProgress = new Set();
+
 function resumeSession(sessionId, newMessage) {
+  // Prevent concurrent resume of the same session
+  if (resumeInProgress.has(sessionId)) {
+    // Another resume is already in progress — queue via the existing session
+    const existing = activeSessions.get(sessionId);
+    if (existing) {
+      existing.sendMessage(newMessage);
+      return existing;
+    }
+    return null;
+  }
+
+  // If session is already active in memory, just send the message directly
+  const alreadyActive = activeSessions.get(sessionId);
+  if (alreadyActive) {
+    alreadyActive.sendMessage(newMessage);
+    return alreadyActive;
+  }
+
+  resumeInProgress.add(sessionId);
+
   const db = getDb();
   const sessionRow = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId);
-  if (!sessionRow) return null;
+  if (!sessionRow) {
+    resumeInProgress.delete(sessionId);
+    return null;
+  }
 
   // Build context preamble
   const preamble = buildContextPreamble(sessionId);
+
+  // Restore MCP connections from the original preset if available
+  let mcpConnections = [];
+  if (sessionRow.preset_id) {
+    const preset = db.prepare('SELECT mcp_connections FROM presets WHERE id = ?').get(sessionRow.preset_id);
+    if (preset && preset.mcp_connections) {
+      try { mcpConnections = JSON.parse(preset.mcp_connections); } catch (e) {}
+    }
+  }
 
   // Create a new SessionProcess for this session ID
   const session = new SessionProcess(sessionId, {
     workingDirectory: sessionRow.working_directory,
     permissionMode: sessionRow.permission_mode || 'acceptEdits',
-    mcpConnections: [],
+    mcpConnections,
     tmuxSessionName: null // new tmux session for resumed session
   });
 
@@ -920,6 +1050,8 @@ function resumeSession(sessionId, newMessage) {
   // Spawn the process with the combined prompt
   session.spawnProcess(combinedPrompt);
 
+  resumeInProgress.delete(sessionId);
+
   return session;
 }
 
@@ -968,10 +1100,20 @@ function recoverTmuxSessions() {
 
     console.log(`  Recovering session ${sessionRow.id} (tmux: ${tmuxName})`);
 
+    // Restore MCP connections from preset if available
+    let mcpConnections = [];
+    if (sessionRow.preset_id) {
+      const preset = db.prepare('SELECT mcp_connections FROM presets WHERE id = ?').get(sessionRow.preset_id);
+      if (preset && preset.mcp_connections) {
+        try { mcpConnections = JSON.parse(preset.mcp_connections); } catch (e) {}
+      }
+    }
+
     // Create a SessionProcess and reconnect
     const session = new SessionProcess(sessionRow.id, {
       workingDirectory: sessionRow.working_directory,
       permissionMode: sessionRow.permission_mode || 'acceptEdits',
+      mcpConnections,
       tmuxSessionName: tmuxName
     });
 
