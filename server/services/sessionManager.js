@@ -587,8 +587,25 @@ class SessionProcess {
 
   async sendMessage(text, attachments = null) {
     if (this.process) {
-      // A process is already running — queue the message
+      // A process is already running — queue the message but still show it in the UI
       this.messageQueue.push(text);
+
+      // Insert into DB and broadcast so the user sees their message immediately
+      await query(
+        `INSERT INTO messages (session_id, role, content, attachments, timestamp) VALUES ($1, 'user', $2, $3, NOW())`,
+        [this.id, text, attachments ? JSON.stringify(attachments) : null]
+      );
+      await query(
+        `UPDATE sessions SET user_message_count = user_message_count + 1, last_activity_at = NOW() WHERE id = $1`,
+        [this.id]
+      );
+      this.broadcast({
+        type: 'user_message',
+        sessionId: this.id,
+        content: text,
+        attachments: attachments || null,
+        timestamp: new Date().toISOString()
+      });
       return;
     }
 
