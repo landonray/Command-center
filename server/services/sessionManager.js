@@ -1150,7 +1150,7 @@ async function recoverTmuxSessions() {
 const VALID_MODELS = ['claude-opus-4-6', 'claude-sonnet-4-6'];
 const DEFAULT_MODEL = 'claude-opus-4-6';
 
-function createSession(options = {}) {
+async function createSession(options = {}) {
   const id = uuidv4();
   const name = options.name || 'New Session';
 
@@ -1159,11 +1159,11 @@ function createSession(options = {}) {
   }
   options.model = options.model || DEFAULT_MODEL;
 
-  query(
+  await query(
     `INSERT INTO sessions (id, name, status, working_directory, branch, permission_mode, model, use_worktree, created_at, last_activity_at)
      VALUES ($1, $2, 'idle', $3, $4, $5, $6, $7, NOW(), NOW())`,
     [id, name, options.workingDirectory || null, options.branch || null, options.permissionMode || 'acceptEdits', options.model || 'claude-opus-4-6', options.useWorktree ? 1 : 0]
-  ).catch(e => console.error('Failed to create session in DB:', e.message));
+  );
 
   const session = new SessionProcess(id, options);
   activeSessions.set(id, session);

@@ -80,7 +80,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new session
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, workingDirectory, permissionMode, initialPrompt, branch, mcpConnections, useWorktree, model } = req.body;
 
@@ -95,7 +95,7 @@ router.post('/', (req, res) => {
       model
     };
 
-    const session = createSession(options);
+    const session = await createSession(options);
     res.status(201).json(session);
   } catch (err) {
     res.status(500).json({ error: err.message });
