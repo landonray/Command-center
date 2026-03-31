@@ -18,7 +18,7 @@ export default function NewSessionModal({ onClose }) {
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [useWorktree, setUseWorktree] = useState(true);
   const [model, setModel] = useState('claude-opus-4-6');
-  const [permissionMode, setPermissionMode] = useState('acceptEdits');
+  const [permissionMode, setPermissionMode] = useState('auto');
   const [form, setForm] = useState({
     name: '',
     workingDirectory: '',

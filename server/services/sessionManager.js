@@ -86,7 +86,7 @@ class SessionProcess {
     this.status = 'idle';
     this.listeners = new Set();
     this.workingDirectory = resolvePath(options.workingDirectory);
-    this.permissionMode = options.permissionMode || 'acceptEdits';
+    this.permissionMode = options.permissionMode || 'auto';
     this.mcpConnections = options.mcpConnections || [];
     this.initialPrompt = options.initialPrompt || null;
     this.useWorktree = options.useWorktree || false;
@@ -176,7 +176,7 @@ class SessionProcess {
       args.push('--worktree');
     }
 
-    args.push('--permission-mode', this.permissionMode || 'acceptEdits');
+    args.push('--permission-mode', this.permissionMode || 'auto');
 
     // Model selection
     if (this.model) {
@@ -1151,7 +1151,7 @@ async function resumeSession(sessionId, newMessage) {
 
   const session = new SessionProcess(sessionId, {
     workingDirectory: sessionRow.working_directory,
-    permissionMode: sessionRow.permission_mode || 'acceptEdits',
+    permissionMode: sessionRow.permission_mode || 'auto',
     model: sessionRow.model || DEFAULT_MODEL,
     mcpConnections: [],
     tmuxSessionName: null
@@ -1237,7 +1237,7 @@ async function recoverTmuxSessions() {
     // Create a SessionProcess and reconnect
     const session = new SessionProcess(sessionRow.id, {
       workingDirectory: sessionRow.working_directory,
-      permissionMode: sessionRow.permission_mode || 'acceptEdits',
+      permissionMode: sessionRow.permission_mode || 'auto',
       model: sessionRow.model || DEFAULT_MODEL,
       mcpConnections: [],
       tmuxSessionName: tmuxName
@@ -1291,7 +1291,7 @@ async function createSession(options = {}) {
   await query(
     `INSERT INTO sessions (id, name, status, working_directory, branch, permission_mode, model, use_worktree, created_at, last_activity_at)
      VALUES ($1, $2, 'idle', $3, $4, $5, $6, $7, NOW(), NOW())`,
-    [id, name, options.workingDirectory || null, options.branch || null, options.permissionMode || 'acceptEdits', options.model || 'claude-opus-4-6', options.useWorktree ? 1 : 0]
+    [id, name, options.workingDirectory || null, options.branch || null, options.permissionMode || 'auto', options.model || 'claude-opus-4-6', options.useWorktree ? 1 : 0]
   );
 
   const session = new SessionProcess(id, options);
