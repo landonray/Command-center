@@ -27,7 +27,16 @@ router.get('/', async (req, res) => {
     }
 
     const entries = fs.readdirSync(dir, { withFileTypes: true })
-      .filter(e => e.isDirectory())
+      .filter(e => e.isDirectory() && !e.name.startsWith('.'))
+      .filter(e => {
+        // Git worktrees have a .git file (not directory) — exclude them
+        const dotGit = path.join(dir, e.name, '.git');
+        try {
+          return fs.statSync(dotGit).isDirectory();
+        } catch {
+          return true; // no .git at all — still show it
+        }
+      })
       .map(e => ({
         name: e.name,
         path: path.join(dir, e.name),
