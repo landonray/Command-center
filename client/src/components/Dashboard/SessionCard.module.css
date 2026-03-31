@@ -2,36 +2,36 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.3s, transform 0.3s;
 }
 
-/* Working sessions: green throbbing outline */
+/* Working sessions: seafoam throbbing outline */
 .cardWorking {
   border-color: var(--success) !important;
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.3);
-  animation: throbGreen 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(94, 196, 160, 0.3);
+  animation: throbGreen 2.5s ease-in-out infinite;
 }
 
-/* Waiting sessions: yellow throbbing outline */
+/* Waiting sessions: golden throbbing outline */
 .cardWaiting {
   border-color: var(--warning) !important;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
-  animation: throbYellow 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(232, 196, 74, 0.3);
+  animation: throbYellow 2.5s ease-in-out infinite;
 }
 
 @keyframes throbGreen {
-  0%, 100% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(74, 222, 128, 0.5); }
+  0%, 100% { box-shadow: 0 0 6px rgba(94, 196, 160, 0.2); }
+  50% { box-shadow: 0 0 18px rgba(94, 196, 160, 0.45); }
 }
 
 @keyframes throbYellow {
-  0%, 100% { box-shadow: 0 0 4px rgba(251, 191, 36, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(251, 191, 36, 0.5); }
+  0%, 100% { box-shadow: 0 0 6px rgba(232, 196, 74, 0.2); }
+  50% { box-shadow: 0 0 18px rgba(232, 196, 74, 0.45); }
 }
 
 /* Archived card dimmed */
 .cardArchived {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .header {
@@ -43,7 +43,7 @@
 
 .name {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -66,21 +66,21 @@
 }
 
 .contextBar {
-  height: 4px;
+  height: 5px;
   background: var(--bg-tertiary);
-  border-radius: 2px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .contextFill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
 .contextLabel {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .stats {
@@ -124,17 +124,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 6px;
+  padding: 4px 8px;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
 .archiveBtn:hover {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
+  color: var(--accent);
+  border-color: var(--accent);
 }

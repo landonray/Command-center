@@ -3,7 +3,6 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  /* top padding handled by Layout panelTabs */
 }
 
 .header {
@@ -18,11 +17,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--driftwood);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .headerActions {
@@ -37,9 +36,10 @@
   gap: 4px;
   font-size: 12px;
   color: var(--accent);
-  background: rgba(56, 189, 248, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
+  background: rgba(232, 138, 74, 0.1);
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 .search {
@@ -75,14 +75,15 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
   font-size: 12px;
-  transition: all 0.15s;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
 .viewTab:hover {
@@ -121,7 +122,7 @@
 .branchDiffHeader {
   padding: 8px 12px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--accent);
 }
 

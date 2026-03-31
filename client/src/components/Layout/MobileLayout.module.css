@@ -40,18 +40,18 @@
   padding: 8px 4px;
   background: none;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius);
   color: var(--text-muted);
   cursor: pointer;
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.2s ease;
   position: relative;
 }
 
 .tab.active {
   color: var(--accent);
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(232, 138, 74, 0.1);
 }
 
 .tab.active::before {

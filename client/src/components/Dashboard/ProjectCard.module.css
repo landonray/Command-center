@@ -3,20 +3,23 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 20px 12px;
+  padding: 22px 14px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   color: var(--text-primary);
-  transition: all 0.15s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: center;
   width: 100%;
+  box-shadow: 0 2px 6px rgba(20, 12, 5, 0.2);
 }
 
 .card:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--bg-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(20, 12, 5, 0.35), 0 0 0 1px rgba(232, 138, 74, 0.15);
 }
 
 .card:disabled {
@@ -26,7 +29,7 @@
 
 .name {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .path {

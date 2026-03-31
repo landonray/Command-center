@@ -9,12 +9,13 @@
   position: absolute;
   top: 4px;
   right: 8px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   font-size: 10px;
   color: var(--text-muted);
   background: var(--bg-tertiary);
-  border-radius: 3px;
+  border-radius: 6px;
   text-transform: uppercase;
+  font-weight: 700;
 }
 
 .code {

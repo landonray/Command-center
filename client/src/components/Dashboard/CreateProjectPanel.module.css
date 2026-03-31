@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 20px;
+  padding: 22px;
 }
 
 .form {
@@ -18,7 +18,7 @@
 }
 
 .field label {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
 }
 
@@ -44,13 +44,14 @@
 }
 
 .toggleBtn {
-  padding: 6px 16px;
+  padding: 8px 18px;
   font-size: 13px;
   background: transparent;
   border: none;
   cursor: pointer;
   color: var(--text-secondary);
-  transition: background 0.15s;
+  transition: all 0.2s;
+  font-weight: 600;
 }
 
 .toggleBtn:disabled {
@@ -59,15 +60,16 @@
 }
 
 .toggleBtn.active {
-  background: var(--accent);
-  color: white;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--coral) 100%);
+  color: #1a1510;
+  font-weight: 700;
 }
 
 .toggleLabel {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
   cursor: pointer;
 }
@@ -76,10 +78,11 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
+  accent-color: var(--accent);
 }
 
 .error {
-  color: var(--error, #e05555);
+  color: var(--error);
   font-size: 13px;
   margin: 0;
 }

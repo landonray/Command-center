@@ -6,10 +6,12 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 5px 10px;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.15s;
   user-select: none;
+  border-radius: 4px;
+  margin: 0 4px;
 }
 
 .node:hover {
@@ -58,9 +60,9 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: 4px;
   opacity: 0;
-  transition: all 0.1s;
+  transition: all 0.15s;
 }
 
 .node:hover .diffBtn {
