@@ -43,7 +43,7 @@
 .card.active {
   background: var(--bg-tertiary);
   border-color: var(--accent);
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: 0 4px 16px rgba(212, 120, 48, 0.18);
 }
 
 /* Running sessions: seafoam throbbing outline */
@@ -55,7 +55,7 @@
 
 .cardWorking.active {
   border-color: var(--success);
-  box-shadow: inset 3px 0 0 var(--success), 0 0 8px rgba(42, 144, 112, 0.2);
+  box-shadow: 0 4px 16px rgba(42, 144, 112, 0.2);
   animation: throbGreen 2.5s ease-in-out infinite;
 }
 
@@ -68,7 +68,7 @@
 
 .cardWaiting.active {
   border-color: var(--warning);
-  box-shadow: inset 3px 0 0 var(--warning), 0 0 8px rgba(200, 160, 32, 0.2);
+  box-shadow: 0 4px 16px rgba(200, 160, 32, 0.2);
   animation: throbYellow 2.5s ease-in-out infinite;
 }
 
