@@ -12,7 +12,7 @@
 }
 
 .field label {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
 }
 
@@ -23,7 +23,7 @@
 }
 
 .restartSection {
-  border-top: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  border-top: 1px solid var(--border);
   padding-top: 24px;
   display: flex;
   flex-direction: column;
@@ -33,5 +33,5 @@
 .restartSection h3 {
   margin: 0;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 800;
 }

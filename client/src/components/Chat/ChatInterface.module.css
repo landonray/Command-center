@@ -9,10 +9,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   gap: 12px;
+  background: var(--bg-secondary);
 }
 
 .headerLeft {
@@ -31,7 +32,7 @@
 
 .title {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -45,7 +46,7 @@
   border-radius: var(--radius);
   padding: 2px 6px;
   margin: -2px -6px;
-  transition: background 0.15s;
+  transition: background 0.2s;
 }
 
 .nameDisplay:hover {
@@ -55,7 +56,7 @@
 .editIcon {
   color: var(--text-muted);
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.2s;
   flex-shrink: 0;
 }
 
@@ -71,9 +72,9 @@
 
 .nameInput {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   background: var(--bg-tertiary);
-  border: 1px solid var(--border-focus, var(--border));
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-primary);
   padding: 2px 8px;
@@ -83,7 +84,8 @@
 }
 
 .nameInput:focus {
-  border-color: var(--accent, #6366f1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(232, 138, 74, 0.15);
 }
 
 .sendError {
@@ -91,10 +93,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 16px;
-  background: color-mix(in srgb, var(--danger, #ef4444) 12%, var(--bg-secondary, #1a1a2e));
-  border-top: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
-  color: var(--danger, #ef4444);
+  padding: 8px 18px;
+  background: rgba(224, 107, 107, 0.1);
+  border-top: 1px solid rgba(224, 107, 107, 0.25);
+  color: var(--error);
   font-size: 13px;
   flex-shrink: 0;
 }
@@ -105,7 +107,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--danger, #ef4444);
+  color: var(--error);
   opacity: 0.7;
   padding: 2px;
   flex-shrink: 0;
@@ -116,9 +118,10 @@
 }
 
 .inputArea {
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--bg-secondary);
 }
 
 .inputWrapper {
@@ -128,7 +131,14 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 4px 4px 4px 12px;
+  padding: 4px 4px 4px 14px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.inputWrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(232, 138, 74, 0.1);
 }
 
 .textarea {
@@ -155,7 +165,7 @@
 
 .sendBtn {
   border-radius: var(--radius);
-  padding: 8px 12px;
+  padding: 8px 14px;
   flex-shrink: 0;
 }
 
@@ -163,7 +173,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 18px;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
@@ -185,12 +195,12 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 2px dashed var(--accent, #38bdf8);
+  background: rgba(26, 21, 16, 0.9);
+  border: 2px dashed var(--accent);
   border-radius: var(--radius-lg);
-  color: var(--accent, #38bdf8);
+  color: var(--accent);
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   pointer-events: none;
 }
 
@@ -203,18 +213,18 @@
   color: var(--text-muted);
   padding: 6px;
   flex-shrink: 0;
-  transition: color 0.15s;
+  transition: color 0.2s;
 }
 
 .attachBtn:hover:not(:disabled) {
-  color: var(--text-primary);
+  color: var(--accent);
 }
 
 /* Attachment preview bar */
 .attachmentBar {
   display: flex;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 18px;
   overflow-x: auto;
   flex-shrink: 0;
   border-top: 1px solid var(--border);
@@ -225,7 +235,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
+  padding: 6px 10px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -238,7 +248,7 @@
   width: 36px;
   height: 36px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 6px;
   flex-shrink: 0;
 }
 
@@ -249,7 +259,7 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-primary);
-  border-radius: 4px;
+  border-radius: 6px;
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -263,7 +273,7 @@
 
 .attachmentName {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -281,15 +291,15 @@
   color: var(--text-muted);
   cursor: pointer;
   padding: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, background 0.15s;
+  transition: color 0.2s, background 0.2s;
 }
 
 .attachmentRemove:hover {
-  color: var(--error, #f87171);
-  background: rgba(248, 113, 113, 0.1);
+  color: var(--error);
+  background: rgba(224, 107, 107, 0.1);
 }

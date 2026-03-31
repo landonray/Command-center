@@ -7,13 +7,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .fileName {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .modeToggle {
@@ -25,13 +25,14 @@
 }
 
 .modeBtn {
-  padding: 4px 8px;
+  padding: 4px 10px;
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.1s;
+  border-radius: 6px;
+  transition: all 0.15s;
+  font-weight: 600;
 }
 
 .modeBtn:hover {
@@ -48,9 +49,9 @@
 }
 
 .fileHeader {
-  padding: 6px 12px;
+  padding: 8px 14px;
   background: var(--bg-tertiary);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
 }
@@ -60,8 +61,8 @@
 }
 
 .hunkHeader {
-  padding: 4px 12px;
-  background: rgba(56, 189, 248, 0.08);
+  padding: 4px 14px;
+  background: rgba(232, 138, 74, 0.08);
   color: var(--accent);
   font-size: 11px;
 }
@@ -73,7 +74,7 @@
 .diffLine {
   display: flex;
   white-space: pre;
-  padding: 0 12px;
+  padding: 0 14px;
   min-height: 1.6em;
 }
 
@@ -91,12 +92,12 @@
 }
 
 .addLine {
-  background: rgba(74, 222, 128, 0.08);
+  background: rgba(94, 196, 160, 0.08);
   color: var(--success);
 }
 
 .removeLine {
-  background: rgba(248, 113, 113, 0.08);
+  background: rgba(224, 107, 107, 0.08);
   color: var(--error);
 }
 

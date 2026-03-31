@@ -11,23 +11,28 @@
 
 .header h3 {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .serverItem {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s;
+}
+
+.serverItem:hover {
+  border-color: rgba(232, 138, 74, 0.3);
 }
 
 .serverIcon {
@@ -48,7 +53,7 @@
 }
 
 .serverName {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
 }
 
@@ -56,15 +61,16 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 9999px;
   font-size: 10px;
-  background: rgba(100, 116, 139, 0.15);
+  font-weight: 700;
+  background: rgba(139, 115, 85, 0.15);
   color: var(--text-muted);
 }
 
 .statusBadge.connected {
-  background: rgba(74, 222, 128, 0.15);
+  background: rgba(94, 196, 160, 0.15);
   color: var(--success);
 }
 
@@ -87,12 +93,13 @@
 .editOverlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 10, 5, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 16px;
+  backdrop-filter: blur(4px);
 }
 
 .editPanel {
@@ -103,26 +110,27 @@
   max-width: 480px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 16px 64px rgba(20, 12, 5, 0.6);
 }
 
 .editHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 18px 22px;
   border-bottom: 1px solid var(--border);
 }
 
 .editHeader h4 {
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .editForm {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 20px;
+  padding: 22px;
 }
 
 .field {
@@ -133,7 +141,7 @@
 
 .field label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 

@@ -4,25 +4,25 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: #0d1117;
+  background: #120e0a;
 }
 
 .toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: #0d1117;
+  background: #120e0a;
 }
 
 .toolbarLabel {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .toolbarActions {
@@ -39,35 +39,35 @@
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 12px;
   line-height: 1.5;
-  color: #e6edf3;
+  color: var(--sand-light);
 }
 
 .line {
-  padding: 0 12px;
+  padding: 0 14px;
   white-space: pre-wrap;
   word-break: break-word;
   display: block;
 }
 
 .line:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(244, 232, 211, 0.04);
 }
 
 .line_stderr {
-  color: #ff7b72;
+  color: var(--coral);
 }
 
 .line_tool {
-  color: #79c0ff;
+  color: var(--info);
   font-weight: 600;
 }
 
 .line_result {
-  color: #8b949e;
+  color: var(--text-muted);
 }
 
 .line_muted {
-  color: #484f58;
+  color: #3e3225;
 }
 
 .empty {
@@ -84,8 +84,8 @@
   position: absolute;
   bottom: 12px;
   right: 16px;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -96,16 +96,18 @@
   cursor: pointer;
   font-size: 14px;
   opacity: 0.9;
-  transition: opacity 0.15s;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(20, 12, 5, 0.4);
 }
 
 .scrollToBottom:hover {
   opacity: 1;
   background: var(--bg-hover);
+  border-color: var(--accent);
 }
 
 .scrollToBottom:active {
-  transform: scale(0.98);
+  transform: scale(0.95);
 }
 
 .outputWrap {

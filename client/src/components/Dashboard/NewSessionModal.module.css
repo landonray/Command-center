@@ -4,12 +4,13 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(15, 10, 5, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 16px;
+  backdrop-filter: blur(4px);
 }
 
 .modal {
@@ -20,19 +21,20 @@
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: 0 16px 64px rgba(20, 12, 5, 0.6);
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 18px 22px;
   border-bottom: 1px solid var(--border);
 }
 
 .header h2 {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .tabs {
@@ -42,15 +44,15 @@
 
 .tab {
   flex: 1;
-  padding: 10px;
+  padding: 12px;
   background: none;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   border-bottom: 2px solid transparent;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
 .tab:hover {
@@ -65,8 +67,8 @@
 .presetGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  padding: 20px;
+  gap: 14px;
+  padding: 22px;
 }
 
 .presetCard {
@@ -74,18 +76,21 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 20px 12px;
+  padding: 22px 14px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   color: var(--text-primary);
-  transition: all 0.15s;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(20, 12, 5, 0.2);
 }
 
 .presetCard:hover {
   border-color: var(--accent);
   background: var(--bg-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(20, 12, 5, 0.35);
 }
 
 .presetCard:disabled {
@@ -95,7 +100,7 @@
 
 .presetName {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .presetDesc {
@@ -108,7 +113,7 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 20px;
+  padding: 22px;
 }
 
 .field {
@@ -119,7 +124,7 @@
 
 .field label {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
@@ -149,7 +154,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
+  padding: 12px 22px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -158,20 +163,20 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
 .toggle {
   position: relative;
-  width: 36px;
-  height: 20px;
-  border-radius: 10px;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
   border: none;
   background: var(--bg-tertiary);
   cursor: pointer;
   padding: 0;
-  transition: background 0.15s;
+  transition: background 0.2s;
 }
 
 .toggleOn {
@@ -180,24 +185,24 @@
 
 .toggleKnob {
   position: absolute;
-  top: 2px;
-  left: 2px;
+  top: 3px;
+  left: 3px;
   width: 16px;
   height: 16px;
   border-radius: 50%;
   background: var(--text-primary);
-  transition: transform 0.15s;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .toggleOn .toggleKnob {
-  transform: translateX(16px);
+  transform: translateX(18px);
 }
 
 .modelSelector {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
+  padding: 12px 22px;
   border-bottom: 1px solid var(--border);
 }
-

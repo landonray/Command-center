@@ -11,10 +11,10 @@
 .projectHeader {
   padding: 10px 16px 6px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  color: var(--driftwood);
   position: sticky;
   top: 0;
   background: var(--bg-secondary);
@@ -25,12 +25,12 @@
 /* Card container */
 .card {
   margin: 4px;
-  padding: 12px;
+  padding: 14px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   width: 280px;
   flex: 0 0 280px;
 }
@@ -46,45 +46,45 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-/* Running sessions: green throbbing outline */
+/* Running sessions: seafoam throbbing outline */
 .cardWorking {
   border-color: var(--success);
-  box-shadow: 0 0 6px rgba(74, 222, 128, 0.3);
-  animation: throbGreen 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(94, 196, 160, 0.3);
+  animation: throbGreen 2.5s ease-in-out infinite;
 }
 
 .cardWorking.active {
   border-color: var(--success);
-  box-shadow: inset 3px 0 0 var(--success), 0 0 6px rgba(74, 222, 128, 0.3);
-  animation: throbGreen 2s ease-in-out infinite;
+  box-shadow: inset 3px 0 0 var(--success), 0 0 8px rgba(94, 196, 160, 0.3);
+  animation: throbGreen 2.5s ease-in-out infinite;
 }
 
-/* Waiting sessions: yellow throbbing outline */
+/* Waiting sessions: golden throbbing outline */
 .cardWaiting {
   border-color: var(--warning);
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.3);
-  animation: throbYellow 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(232, 196, 74, 0.3);
+  animation: throbYellow 2.5s ease-in-out infinite;
 }
 
 .cardWaiting.active {
   border-color: var(--warning);
-  box-shadow: inset 3px 0 0 var(--warning), 0 0 6px rgba(251, 191, 36, 0.3);
-  animation: throbYellow 2s ease-in-out infinite;
+  box-shadow: inset 3px 0 0 var(--warning), 0 0 8px rgba(232, 196, 74, 0.3);
+  animation: throbYellow 2.5s ease-in-out infinite;
 }
 
 @keyframes throbGreen {
-  0%, 100% { box-shadow: 0 0 4px rgba(74, 222, 128, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(74, 222, 128, 0.5); }
+  0%, 100% { box-shadow: 0 0 6px rgba(94, 196, 160, 0.2); }
+  50% { box-shadow: 0 0 18px rgba(94, 196, 160, 0.45); }
 }
 
 @keyframes throbYellow {
-  0%, 100% { box-shadow: 0 0 4px rgba(251, 191, 36, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(251, 191, 36, 0.5); }
+  0%, 100% { box-shadow: 0 0 6px rgba(232, 196, 74, 0.2); }
+  50% { box-shadow: 0 0 18px rgba(232, 196, 74, 0.45); }
 }
 
 /* Archived card dimmed */
 .cardArchived {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 /* Card header: status dot + name + badge */
@@ -106,15 +106,15 @@
   background-color: var(--success);
   animation: pulse 2s infinite;
 }
-.statusDot[data-status="idle"]    { background-color: var(--success); }
+.statusDot[data-status="idle"]    { background-color: var(--seafoam); }
 .statusDot[data-status="waiting"] { background-color: var(--warning); }
 .statusDot[data-status="error"]   { background-color: var(--error); }
-.statusDot[data-status="paused"]  { background-color: var(--info, var(--text-muted)); }
+.statusDot[data-status="paused"]  { background-color: var(--info); }
 .statusDot[data-status="ended"]   { background-color: var(--text-muted); }
 
 .cardName {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -159,14 +159,14 @@
   background: var(--bg-tertiary);
   color: var(--text-muted);
   font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 8px;
-  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 700;
 }
 
 .filterActive {
   color: var(--accent) !important;
-  background: rgba(56, 189, 248, 0.1) !important;
+  background: rgba(232, 138, 74, 0.12) !important;
 }
 
 /* Stats section */
@@ -212,16 +212,16 @@
 
 .contextBar {
   width: 48px;
-  height: 4px;
+  height: 5px;
   background: var(--bg-tertiary);
-  border-radius: 2px;
+  border-radius: 3px;
   overflow: hidden;
   flex-shrink: 0;
 }
 
 .contextFill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: 3px;
   transition: width 0.3s ease;
 }
 
@@ -233,8 +233,8 @@
 
 /* Tool prefix in last action */
 .toolPrefix {
-  color: var(--error);
-  font-weight: 600;
+  color: var(--coral);
+  font-weight: 700;
 }
 
 /* Branch / worktree tag */
@@ -244,31 +244,32 @@
   gap: 4px;
   font-size: 10px;
   color: var(--accent);
-  background: rgba(56, 189, 248, 0.1);
+  background: rgba(232, 138, 74, 0.1);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-bottom: 8px;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 600;
 }
 
 .archiveBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 6px;
+  padding: 4px 8px;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s;
 }
 
 .archiveBtn:hover {
   background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border-color: var(--text-muted);
+  color: var(--accent);
+  border-color: var(--accent);
 }

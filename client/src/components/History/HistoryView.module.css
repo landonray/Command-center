@@ -9,21 +9,21 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 18px 24px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .header h1 {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .searchBar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 24px;
+  padding: 14px 24px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
   flex-shrink: 0;
@@ -60,7 +60,8 @@
   color: var(--text-muted);
   cursor: pointer;
   font-size: 13px;
-  transition: all 0.15s;
+  font-weight: 600;
+  transition: all 0.2s;
 }
 
 .tab:hover {
@@ -79,17 +80,19 @@
 }
 
 .sessionItem {
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 8px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 10px;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: all 0.2s;
 }
 
 .sessionItem:hover {
   border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(20, 12, 5, 0.3);
 }
 
 .sessionHeader {
@@ -100,7 +103,7 @@
 }
 
 .sessionName {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
 }
 
@@ -129,12 +132,13 @@
 }
 
 .searchResult {
-  padding: 12px 16px;
+  padding: 14px 18px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 8px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 10px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
 .searchResult:hover {
@@ -150,7 +154,7 @@
 
 .role {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   color: var(--accent);
 }
@@ -182,14 +186,14 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 24px;
+  padding: 14px 24px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .logHeader h3 {
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .logMessages {
@@ -199,13 +203,13 @@
 }
 
 .logMessage {
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .logMessage.user {
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(232, 138, 74, 0.08);
   border-left: 3px solid var(--accent);
 }
 
@@ -216,7 +220,7 @@
 
 .logRole {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -235,11 +239,11 @@
 }
 
 .digestItem {
-  padding: 16px;
+  padding: 18px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 12px;
+  border-radius: var(--radius-lg);
+  margin-bottom: 14px;
 }
 
 .digestHeader {
@@ -251,7 +255,7 @@
 }
 
 .digestDate {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
 }
 
