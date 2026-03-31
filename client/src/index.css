@@ -106,7 +106,7 @@ a:hover {
 
 /* Status badge colors */
 .status-working { color: var(--success); }
-.status-idle { color: var(--seafoam); }
+.status-idle { color: var(--coral); }
 .status-waiting { color: var(--warning); }
 .status-error { color: var(--error); }
 .status-ended { color: var(--text-muted); }
@@ -265,8 +265,8 @@ textarea.input {
   box-shadow: 0 0 8px rgba(42, 144, 112, 0.1);
 }
 .badge-idle {
-  background: rgba(64, 168, 136, 0.12);
-  color: var(--seafoam);
+  background: rgba(192, 96, 64, 0.12);
+  color: var(--coral);
 }
 .badge-waiting {
   background: rgba(200, 160, 32, 0.12);
@@ -301,6 +301,9 @@ textarea.input {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--bg-secondary);
+  position: relative;
+  z-index: 1;
 }
 
 .panel-header h2 {

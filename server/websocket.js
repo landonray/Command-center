@@ -30,6 +30,14 @@ function setupWebSocket(server) {
             state.sessionUnsubscribe = session.addListener((event) => {
               safeSend(ws, event);
               handleNotifications(event);
+              // Broadcast name updates to ALL clients so the sidebar updates
+              if (event.type === 'session_name_updated') {
+                wss.clients.forEach((client) => {
+                  if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(event));
+                  }
+                });
+              }
             });
 
             safeSend(ws, {

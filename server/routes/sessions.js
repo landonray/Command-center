@@ -43,9 +43,12 @@ router.get('/', async (req, res) => {
       s.status = activeInfo.status;
       query("UPDATE sessions SET status = $1 WHERE id = $2", [activeInfo.status, s.id]).catch(() => {});
     }
-    const projectName = s.working_directory
-      ? path.basename(s.working_directory)
-      : 'Ungrouped';
+    let projectName = 'Ungrouped';
+    if (s.working_directory) {
+      // Worktree paths like /foo/Project/.claude/worktrees/xyz → use "Project"
+      const wtMatch = s.working_directory.match(/^(.+)\/\.claude\/worktrees\//);
+      projectName = wtMatch ? path.basename(wtMatch[1]) : path.basename(s.working_directory);
+    }
     enriched.push({
       ...s,
       project_name: projectName,

@@ -16,6 +16,22 @@
   flex-shrink: 0;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
+  position: relative;
+}
+
+.leftPanel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('/surfboards-bg.jpg') center bottom / cover no-repeat;
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.leftPanel > * {
+  position: relative;
+  z-index: 1;
 }
 
 .resizeHandle {

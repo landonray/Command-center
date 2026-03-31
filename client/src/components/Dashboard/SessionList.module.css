@@ -106,7 +106,7 @@
   background-color: var(--success);
   animation: pulse 2s infinite;
 }
-.statusDot[data-status="idle"]    { background-color: var(--seafoam); }
+.statusDot[data-status="idle"]    { background-color: var(--coral); }
 .statusDot[data-status="waiting"] { background-color: var(--warning); }
 .statusDot[data-status="error"]   { background-color: var(--error); }
 .statusDot[data-status="paused"]  { background-color: var(--info); }
