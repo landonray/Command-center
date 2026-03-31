@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../utils/api';
+import { pushEvents } from './streamEventStore';
 
 let messageIdCounter = 0;
 
@@ -62,7 +63,11 @@ export function useWebSocket(sessionId) {
                 setResuming(false);
               }
               setStatus(data.status);
-              setStreamEvents(prev => [...prev, data.event]);
+              setStreamEvents(prev => {
+                const next = [...prev, data.event];
+                pushEvents(next);
+                return next;
+              });
 
               if (data.event?.type === 'assistant' && data.event?.message) {
                 let content;

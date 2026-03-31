@@ -1,5 +1,6 @@
 // client/src/components/CliPanel/CliPanel.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { subscribe, getEvents } from '../../hooks/streamEventStore';
 import styles from './CliPanel.module.css';
 
 const MAX_LINES = 5000;
@@ -51,49 +52,42 @@ export default function CliPanel({ sessionId }) {
   const [lines, setLines] = useState([]);
   const [atBottom, setAtBottom] = useState(true);
   const outputRef = useRef(null);
-  const wsRef = useRef(null);
+  const processedCountRef = useRef(0);
 
+  // Reset when session changes
   useEffect(() => {
     setLines([]);
     setAtBottom(true);
-    if (!sessionId) return;
+    processedCountRef.current = 0;
+  }, [sessionId]);
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    wsRef.current = ws;
+  // Subscribe to shared stream event store
+  useEffect(() => {
+    function processEvents(events) {
+      if (!events || events.length <= processedCountRef.current) return;
 
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'subscribe_session', sessionId }));
-    };
+      const newEvents = events.slice(processedCountRef.current);
+      processedCountRef.current = events.length;
 
-    ws.onmessage = (msg) => {
-      try {
-        const data = JSON.parse(msg.data);
-        if (data.sessionId !== sessionId) return;
+      const newLines = [];
+      for (const event of newEvents) {
+        const line = formatStreamEvent(event);
+        if (line) newLines.push(line);
+      }
 
-        let line = null;
-
-        if (data.type === 'raw_output') {
-          line = { text: data.data, variant: 'normal' };
-        } else if (data.type === 'stderr') {
-          line = { text: data.data, variant: 'stderr' };
-        } else if (data.type === 'stream_event') {
-          line = formatStreamEvent(data.event);
-        }
-
-        if (!line) return;
+      if (newLines.length > 0) {
         setLines(prev => {
-          const next = [...prev, line];
+          const next = [...prev, ...newLines];
           return next.length > MAX_LINES ? next.slice(next.length - MAX_LINES) : next;
         });
-      } catch (e) {}
-    };
+      }
+    }
 
-    ws.onclose = () => {};
+    // Process any events already in the store
+    processEvents(getEvents());
 
-    return () => {
-      ws.close();
-    };
+    // Subscribe to future events
+    return subscribe(processEvents);
   }, [sessionId]);
 
   // Auto-scroll when lines update, if stuck to bottom
