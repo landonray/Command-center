@@ -121,23 +121,32 @@ export default function Layout() {
         className={`${styles.rightPanel} ${showFileBrowser && sessionId ? '' : styles.collapsed}`}
         style={showFileBrowser && sessionId ? { width: rightWidth } : undefined}
       >
-        {sessionId && (
+        {sessionId && !showFileBrowser && (
           <button
             className={`btn-ghost btn-icon ${styles.toggleBtn}`}
             onClick={() => dispatch({ type: 'TOGGLE_FILE_BROWSER' })}
-            title={showFileBrowser ? 'Hide panel' : 'Show panel'}
+            title="Show panel"
           >
-            {showFileBrowser ? <PanelRightClose size={18} /> : <PanelRightOpen size={18} />}
+            <PanelRightOpen size={18} />
           </button>
         )}
         {showFileBrowser && sessionId && (
           <>
-            <div className={styles.panelTabs}>
-              <PillSelector
-                options={RIGHT_PANEL_TABS}
-                value={rightPanelMode}
-                onChange={(mode) => dispatch({ type: 'SET_RIGHT_PANEL_MODE', payload: mode })}
-              />
+            <div className={styles.panelHeader}>
+              <button
+                className="btn-ghost btn-icon"
+                onClick={() => dispatch({ type: 'TOGGLE_FILE_BROWSER' })}
+                title="Hide panel"
+              >
+                <PanelRightClose size={18} />
+              </button>
+              <div className={styles.panelTabs}>
+                <PillSelector
+                  options={RIGHT_PANEL_TABS}
+                  value={rightPanelMode}
+                  onChange={(mode) => dispatch({ type: 'SET_RIGHT_PANEL_MODE', payload: mode })}
+                />
+              </div>
             </div>
             {rightPanelMode === 'files' ? (
               <FileBrowser directory={activeSession?.working_directory} useWorktree={!!activeSession?.use_worktree} />

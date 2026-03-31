@@ -34,7 +34,7 @@
 .output {
   flex: 1;
   overflow-y: auto;
-  overflow-x: auto;
+  overflow-x: hidden;
   padding: 8px 0;
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 12px;
@@ -44,7 +44,8 @@
 
 .line {
   padding: 0 12px;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-word;
   display: block;
 }
 

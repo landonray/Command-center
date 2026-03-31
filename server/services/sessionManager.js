@@ -560,6 +560,11 @@ class SessionProcess {
         this.status = 'working';
         this.updateDbStatus('working');
         if (event.message) {
+          // Extract context usage from assistant message usage data
+          if (event.message.usage) {
+            await this._updateContextUsage(event.message.usage);
+          }
+
           let content;
           if (typeof event.message === 'string') {
             content = event.message;
@@ -612,39 +617,35 @@ class SessionProcess {
         if (event.subtype === 'init' && event.session_id) {
           this.cliSessionId = event.session_id;
         }
-        if (event.subtype === 'context_window' || event.usage) {
-          const usage = event.usage || {};
-          const totalTokens = (usage.input_tokens || 0) + (usage.output_tokens || 0) + (usage.cache_read_input_tokens || 0);
-          const maxTokens = usage.max_tokens || 200000;
-          const usageRatio = Math.min(totalTokens / maxTokens, 1.0);
-          await query('UPDATE sessions SET context_window_usage = $1 WHERE id = $2', [usageRatio, this.id]);
-
-          const { sendNotification } = require('./notificationService');
-          const settingsResult = await query('SELECT context_threshold FROM notification_settings WHERE id = 1');
-          const settings = settingsResult.rows[0];
-          if (settings && usageRatio >= settings.context_threshold) {
-            sendNotification(
-              'Context Window Warning',
-              `Session context usage at ${Math.round(usageRatio * 100)}%`,
-              { type: 'context_warning', sessionId: this.id }
-            ).catch(() => {});
-          }
-        }
-        break;
-
-      case 'usage':
-        if (event.input_tokens || event.output_tokens) {
-          const totalTokens = (event.input_tokens || 0) + (event.output_tokens || 0);
-          const maxTokens = event.max_tokens || 200000;
-          const usageRatio = Math.min(totalTokens / maxTokens, 1.0);
-          await query('UPDATE sessions SET context_window_usage = $1 WHERE id = $2', [usageRatio, this.id]);
-        }
         break;
 
       case 'result':
         // Queue drain handled by close/exit handlers after process terminates.
         // Draining here caused double-processing because process is still alive.
         break;
+    }
+  }
+
+  async _updateContextUsage(usage) {
+    // input_tokens + cache_read + cache_creation = total prompt size for this API call
+    const promptTokens = (usage.input_tokens || 0)
+      + (usage.cache_read_input_tokens || 0)
+      + (usage.cache_creation_input_tokens || 0);
+    if (promptTokens === 0) return;
+    const maxTokens = 200000;
+    const usageRatio = Math.min(promptTokens / maxTokens, 1.0);
+
+    await query('UPDATE sessions SET context_window_usage = $1 WHERE id = $2', [usageRatio, this.id]);
+
+    const { sendNotification } = require('./notificationService');
+    const settingsResult = await query('SELECT context_threshold FROM notification_settings WHERE id = 1');
+    const settings = settingsResult.rows[0];
+    if (settings && usageRatio >= settings.context_threshold) {
+      sendNotification(
+        'Context Window Warning',
+        `Session context usage at ${Math.round(usageRatio * 100)}%`,
+        { type: 'context_warning', sessionId: this.id }
+      ).catch(() => {});
     }
   }
 
@@ -1283,12 +1284,32 @@ function getAllActiveSessions() {
   }));
 }
 
-function endSession(id) {
+async function endSession(id) {
   const session = activeSessions.get(id);
   if (session) {
-    session.end();
+    await session.end();
     activeSessions.delete(id);
+    return;
   }
+
+  // Session not in memory — update DB directly and kill any tmux session
+  const result = await query('SELECT id, tmux_session_name, status FROM sessions WHERE id = $1', [id]);
+  const dbSession = result.rows[0];
+  if (!dbSession) {
+    throw new Error('Session not found');
+  }
+  if (dbSession.status === 'ended') {
+    return; // Already ended
+  }
+
+  // Kill tmux session if one exists
+  if (dbSession.tmux_session_name) {
+    try {
+      execSync(`tmux kill-session -t ${dbSession.tmux_session_name}`, { stdio: 'ignore' });
+    } catch (e) {}
+  }
+
+  await query("UPDATE sessions SET status = 'ended', ended_at = NOW(), last_activity_at = NOW() WHERE id = $1", [id]);
 }
 
 module.exports = {

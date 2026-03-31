@@ -207,9 +207,9 @@ router.post('/:id/archive', async (req, res) => {
 });
 
 // End session
-router.post('/:id/end', (req, res) => {
+router.post('/:id/end', async (req, res) => {
   try {
-    endSession(req.params.id);
+    await endSession(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -54,6 +54,8 @@ export default function CliPanel({ sessionId }) {
   const wsRef = useRef(null);
 
   useEffect(() => {
+    setLines([]);
+    setAtBottom(true);
     if (!sessionId) return;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';

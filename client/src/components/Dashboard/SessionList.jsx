@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { api } from '../../utils/api';
 import { timeAgo, getContextHealthLevel, getContextHealthLabel } from '../../utils/format';
 import NewSessionModal from './NewSessionModal';
-import { Plus, Archive, ArchiveRestore, Filter, GitBranch } from 'lucide-react';
+import { Plus, Archive, ArchiveRestore, Filter, GitBranch, Settings } from 'lucide-react';
 import styles from './SessionList.module.css';
 
 function renderLastAction(summary) {
@@ -77,6 +77,13 @@ export default function SessionList() {
       <div className="panel-header">
         <h2>Sessions</h2>
         <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => navigate('/settings')}
+            title="Settings"
+          >
+            <Settings size={14} />
+          </button>
           <button
             className={`btn btn-ghost btn-sm ${showFilters ? styles.filterActive : ''}`}
             onClick={() => setShowFilters(f => !f)}

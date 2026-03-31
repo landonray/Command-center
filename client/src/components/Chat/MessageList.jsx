@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { User, Bot, Wrench, Loader, FileIcon, Download } from 'lucide-react';
 import { formatDate } from '../../utils/format';
 import MarkdownPreview from '../FileBrowser/MarkdownPreview';
@@ -35,14 +35,38 @@ function MessageAttachments({ attachments }) {
 export default function MessageList({ messages, loading, streamEvents }) {
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
+  const isNearBottomRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
 
-  useEffect(() => {
+  const handleScroll = useCallback(() => {
     const container = containerRef.current;
-    if (!container || !bottomRef.current) return;
+    if (!container) return;
+    isNearBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+  }, []);
 
-    // Only auto-scroll if user is already near the bottom (within 150px)
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
-    if (isNearBottom) {
+  // Instant scroll to bottom when messages load (session switch) or change significantly
+  useEffect(() => {
+    const prevCount = prevMessageCountRef.current;
+    const currCount = messages.length;
+    prevMessageCountRef.current = currCount;
+
+    // If messages changed by more than 1, it's likely a session switch — jump instantly
+    if (Math.abs(currCount - prevCount) > 1 || prevCount === 0) {
+      isNearBottomRef.current = true;
+      if (containerRef.current) {
+        // Use requestAnimationFrame to ensure DOM has rendered
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight;
+          }
+        });
+      }
+    }
+  }, [messages]);
+
+  // Smooth scroll for incremental updates (new messages arriving one at a time)
+  useLayoutEffect(() => {
+    if (isNearBottomRef.current && bottomRef.current) {
       bottomRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, streamEvents]);
@@ -62,7 +86,7 @@ export default function MessageList({ messages, loading, streamEvents }) {
   }
 
   return (
-    <div className={styles.container} ref={containerRef}>
+    <div className={styles.container} ref={containerRef} onScroll={handleScroll}>
       {messages.length === 0 && (
         <div className="empty-state">
           <Bot size={32} />

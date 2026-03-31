@@ -186,7 +186,9 @@ export function AppProvider({ children }) {
     try {
       const sessions = await api.get('/api/sessions');
       dispatch({ type: 'SET_SESSIONS', payload: sessions });
-    } catch (e) {}
+    } catch (e) {
+      console.error('[loadSessions] Failed:', e.message);
+    }
   }, []);
 
   const loadMcpServers = useCallback(async () => {
@@ -223,6 +225,13 @@ export function AppProvider({ children }) {
       dispatch({ type: 'SET_FILE_TREE', payload: { tree: result.tree, path: result.path } });
     } catch (e) {}
   }, []);
+
+  // Reload sessions whenever WebSocket (re)connects — proves server is up
+  useEffect(() => {
+    if (state.connected) {
+      loadSessions();
+    }
+  }, [state.connected, loadSessions]);
 
   useEffect(() => {
     connectWebSocket();
