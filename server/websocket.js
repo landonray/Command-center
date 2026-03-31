@@ -144,12 +144,37 @@ async function handleMessage(ws, msg, state) {
 
     case 'send_message':
       if (msg.sessionId && msg.content) {
+        const messageId = msg.messageId || null;
+        // Immediately acknowledge receipt so the client knows the message arrived
+        if (messageId) {
+          safeSend(ws, {
+            type: 'message_ack',
+            messageId,
+            status: 'received',
+            timestamp: new Date().toISOString()
+          });
+        }
         let session = getSession(msg.sessionId);
         if (session) {
           try {
             await session.sendMessage(msg.content, msg.attachments || null);
+            if (messageId) {
+              safeSend(ws, {
+                type: 'message_ack',
+                messageId,
+                status: 'processing',
+                timestamp: new Date().toISOString()
+              });
+            }
           } catch (err) {
             console.error(`[WS] sendMessage failed for ${msg.sessionId.slice(0, 8)}:`, err.message);
+            safeSend(ws, {
+              type: 'message_ack',
+              messageId,
+              status: 'failed',
+              error: 'Failed to send message: ' + err.message,
+              timestamp: new Date().toISOString()
+            });
             safeSend(ws, {
               type: 'error',
               sessionId: msg.sessionId,
@@ -180,7 +205,22 @@ async function handleMessage(ws, msg, state) {
                   safeSend(ws, event);
                   handleNotifications(event);
                 });
+                if (messageId) {
+                  safeSend(ws, {
+                    type: 'message_ack',
+                    messageId,
+                    status: 'processing',
+                    timestamp: new Date().toISOString()
+                  });
+                }
               } else {
+                safeSend(ws, {
+                  type: 'message_ack',
+                  messageId,
+                  status: 'failed',
+                  error: 'Failed to resume session.',
+                  timestamp: new Date().toISOString()
+                });
                 safeSend(ws, {
                   type: 'error',
                   sessionId: msg.sessionId,
@@ -190,6 +230,13 @@ async function handleMessage(ws, msg, state) {
               }
             } else {
               safeSend(ws, {
+                type: 'message_ack',
+                messageId,
+                status: 'failed',
+                error: 'Session not found.',
+                timestamp: new Date().toISOString()
+              });
+              safeSend(ws, {
                 type: 'error',
                 sessionId: msg.sessionId,
                 error: 'Session not found.',
@@ -198,6 +245,13 @@ async function handleMessage(ws, msg, state) {
             }
           } catch (err) {
             console.error('send_message resume error:', err.message);
+            safeSend(ws, {
+              type: 'message_ack',
+              messageId,
+              status: 'failed',
+              error: 'Failed to process message: ' + err.message,
+              timestamp: new Date().toISOString()
+            });
             safeSend(ws, {
               type: 'error',
               sessionId: msg.sessionId,

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../utils/api';
 
+let messageIdCounter = 0;
+
 export function useWebSocket(sessionId) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState('idle');
@@ -8,10 +10,13 @@ export function useWebSocket(sessionId) {
   const [pendingPermission, setPendingPermission] = useState(null);
   const [streamEvents, setStreamEvents] = useState([]);
   const [resuming, setResuming] = useState(false);
+  const [sendError, setSendError] = useState(null);
   const wsRef = useRef(null);
   // Ref to track resuming state inside the WS closure (avoids stale closure)
   const resumingRef = useRef(false);
   const reconnectTimerRef = useRef(null);
+  // Map of messageId -> { timeout, resolve } for pending ack tracking
+  const pendingMessagesRef = useRef(new Map());
 
   useEffect(() => {
     if (!sessionId) return;
@@ -118,6 +123,20 @@ export function useWebSocket(sessionId) {
               setStatus('idle');
               break;
 
+            case 'message_ack': {
+              const pending = pendingMessagesRef.current.get(data.messageId);
+              if (pending) {
+                clearTimeout(pending.timeout);
+                pendingMessagesRef.current.delete(data.messageId);
+                if (data.status === 'failed') {
+                  setSendError(data.error || 'Message failed to send.');
+                } else {
+                  setSendError(null);
+                }
+              }
+              break;
+            }
+
             case 'error':
               setStatus('error');
               resumingRef.current = false;
@@ -127,10 +146,20 @@ export function useWebSocket(sessionId) {
               }
               break;
           }
-        } catch (e) {}
+        } catch (e) {
+          console.error('[WS] Message parse error:', e);
+        }
       };
 
       ws.onclose = () => {
+        // Clear any pending message ack timeouts on disconnect
+        if (pendingMessagesRef.current.size > 0) {
+          for (const [, pending] of pendingMessagesRef.current) {
+            clearTimeout(pending.timeout);
+          }
+          setSendError('Connection lost. Your message may not have been delivered.');
+          pendingMessagesRef.current.clear();
+        }
         // Reconnect after server restart — reload messages from DB on reconnect
         if (!cancelled) {
           reconnectTimerRef.current = setTimeout(() => {
@@ -165,17 +194,37 @@ export function useWebSocket(sessionId) {
   }, [sessionId]);
 
   const sendMessage = useCallback((content, attachments = null) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      const msg = {
-        type: 'send_message',
-        sessionId,
-        content
-      };
-      if (attachments && attachments.length > 0) {
-        msg.attachments = attachments;
-      }
-      wsRef.current.send(JSON.stringify(msg));
+    if (wsRef.current?.readyState !== WebSocket.OPEN) {
+      setSendError('Not connected. Please wait and try again.');
+      return false;
     }
+    const messageId = ++messageIdCounter;
+    const msg = {
+      type: 'send_message',
+      sessionId,
+      content,
+      messageId
+    };
+    if (attachments && attachments.length > 0) {
+      msg.attachments = attachments;
+    }
+    try {
+      wsRef.current.send(JSON.stringify(msg));
+    } catch (e) {
+      console.error('[WS] send failed:', e);
+      setSendError('Failed to send message. Please try again.');
+      return false;
+    }
+    // Track this message — if no ack within 10s, show error
+    const timeout = setTimeout(() => {
+      if (pendingMessagesRef.current.has(messageId)) {
+        pendingMessagesRef.current.delete(messageId);
+        setSendError('No response from server. Claude may not have received your message.');
+      }
+    }, 10000);
+    pendingMessagesRef.current.set(messageId, { timeout });
+    setSendError(null);
+    return true;
   }, [sessionId]);
 
   const approvePermission = useCallback((approved = true) => {
@@ -189,6 +238,8 @@ export function useWebSocket(sessionId) {
     }
   }, [sessionId]);
 
+  const clearSendError = useCallback(() => setSendError(null), []);
+
   return {
     messages,
     setMessages,
@@ -198,6 +249,8 @@ export function useWebSocket(sessionId) {
     streamEvents,
     sendMessage,
     approvePermission,
-    resuming
+    resuming,
+    sendError,
+    clearSendError
   };
 }
