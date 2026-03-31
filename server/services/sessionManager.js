@@ -243,6 +243,10 @@ class SessionProcess {
 
     const scriptLines = [
       '#!/usr/bin/env bash',
+      '# Source shell profile to inherit PATH and tool configs (gh, git, etc.)',
+      '[ -f "$HOME/.zshrc" ] && source "$HOME/.zshrc" 2>/dev/null',
+      '[ -f "$HOME/.bash_profile" ] && source "$HOME/.bash_profile" 2>/dev/null',
+      '',
       `OUTPUT_FILE=${JSON.stringify(outputFile)}`,
       `PROMPT_FILE=${JSON.stringify(promptFile)}`,
       '',

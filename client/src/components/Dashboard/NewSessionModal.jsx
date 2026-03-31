@@ -18,11 +18,11 @@ export default function NewSessionModal({ onClose }) {
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [useWorktree, setUseWorktree] = useState(true);
   const [model, setModel] = useState('claude-opus-4-6');
+  const [permissionMode, setPermissionMode] = useState('acceptEdits');
   const [form, setForm] = useState({
     name: '',
     workingDirectory: '',
     initialPrompt: '',
-    permissionMode: 'acceptEdits',
   });
   const [loading, setLoading] = useState(false);
 
@@ -42,7 +42,7 @@ export default function NewSessionModal({ onClose }) {
       const session = await api.post('/api/sessions', {
         name: project.name,
         workingDirectory: project.path,
-        permissionMode: 'acceptEdits',
+        permissionMode,
         useWorktree,
         model,
       });
@@ -70,7 +70,7 @@ export default function NewSessionModal({ onClose }) {
         name: form.name || undefined,
         workingDirectory: form.workingDirectory || undefined,
         initialPrompt: form.initialPrompt || undefined,
-        permissionMode: form.permissionMode,
+        permissionMode,
         useWorktree,
         model,
       });
@@ -147,6 +147,23 @@ export default function NewSessionModal({ onClose }) {
               />
             </div>
 
+            <div className={styles.modelSelector}>
+              <label className={styles.toggleLabel}>
+                <span>Permissions</span>
+              </label>
+              <PillSelector
+                options={[
+                  { value: 'plan', label: 'Plan' },
+                  { value: 'default', label: 'Ask' },
+                  { value: 'acceptEdits', label: 'Edits' },
+                  { value: 'auto', label: 'Auto' },
+                  { value: 'bypassPermissions', label: 'YOLO' },
+                ]}
+                value={permissionMode}
+                onChange={setPermissionMode}
+              />
+            </div>
+
             {mode === 'projects' && (
               <div className={styles.presetGrid}>
                 <button
@@ -212,21 +229,7 @@ export default function NewSessionModal({ onClose }) {
                   />
                 </div>
 
-                <div className={styles.field}>
-                  <label>Permission Mode</label>
-                  <PillSelector
-                    options={[
-                      { value: 'acceptEdits', label: 'Accept Edits' },
-                      { value: 'auto', label: 'Auto' },
-                      { value: 'plan', label: 'Plan' },
-                      { value: 'default', label: 'Ask' },
-                    ]}
-                    value={form.permissionMode}
-                    onChange={v => setForm(f => ({ ...f, permissionMode: v }))}
-                  />
-                </div>
-
-                <button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>
+<button className="btn btn-primary" type="submit" disabled={loading} style={{ width: '100%' }}>
                   {loading ? 'Starting...' : 'Start Session'}
                 </button>
               </form>

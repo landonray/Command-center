@@ -77,10 +77,11 @@ export default function SessionControls({ sessionId, status, session }) {
               <div style={{ padding: '0 8px 8px' }}>
                 <PillSelector
                   options={[
-                    { value: 'acceptEdits', label: 'Edits' },
-                    { value: 'auto', label: 'Auto' },
                     { value: 'plan', label: 'Plan' },
                     { value: 'default', label: 'Ask' },
+                    { value: 'acceptEdits', label: 'Edits' },
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'bypassPermissions', label: 'YOLO' },
                   ]}
                   value={permissionMode}
                   onChange={changePermissionMode}

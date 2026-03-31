@@ -266,7 +266,7 @@ router.post('/:id/permission-mode', async (req, res) => {
   }
 
   const { permissionMode } = req.body;
-  const valid = ['acceptEdits', 'auto', 'plan', 'default'];
+  const valid = ['acceptEdits', 'auto', 'plan', 'default', 'bypassPermissions', 'dontAsk'];
   if (!valid.includes(permissionMode)) {
     return res.status(400).json({ error: `Invalid permission mode. Must be one of: ${valid.join(', ')}` });
   }
