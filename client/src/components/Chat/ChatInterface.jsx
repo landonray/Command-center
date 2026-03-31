@@ -29,22 +29,34 @@ export default function ChatInterface({ sessionId }) {
   const fileInputRef = useRef(null);
   const dragCounterRef = useRef(0);
 
-  // Load existing messages
+  // Load existing messages from DB (with retry for server restart scenarios)
   useEffect(() => {
-    async function loadMessages() {
-      try {
-        const result = await api.get(`/api/sessions/${sessionId}/messages`);
-        setMessages(result.messages.map(m => ({
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp,
-          toolCalls: m.tool_calls ? JSON.parse(m.tool_calls) : null,
-          attachments: m.attachments ? JSON.parse(m.attachments) : null,
-        })));
-      } catch (e) {}
-      setLoading(false);
+    let cancelled = false;
+    async function loadMessages(retries = 3) {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+          const result = await api.get(`/api/sessions/${sessionId}/messages`);
+          if (cancelled) return;
+          setMessages(result.messages.map(m => ({
+            role: m.role,
+            content: m.content,
+            timestamp: m.timestamp,
+            toolCalls: m.tool_calls ? JSON.parse(m.tool_calls) : null,
+            attachments: m.attachments ? JSON.parse(m.attachments) : null,
+          })));
+          setLoading(false);
+          return;
+        } catch (e) {
+          console.error(`[ChatInterface] Failed to load messages (attempt ${attempt + 1}/${retries}):`, e.message);
+          if (attempt < retries - 1) {
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          }
+        }
+      }
+      if (!cancelled) setLoading(false);
     }
     loadMessages();
+    return () => { cancelled = true; };
   }, [sessionId]);
 
   const isEnded = status === 'ended';
