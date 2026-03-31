@@ -122,7 +122,7 @@
   padding: 14px 18px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
-  background: var(--bg-secondary);
+  background: var(--sand-light);
 }
 
 .inputWrapper {
