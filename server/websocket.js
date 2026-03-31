@@ -196,15 +196,15 @@ async function handleMessage(ws, msg, state) {
                 timestamp: new Date().toISOString()
               });
 
-              // Add listener BEFORE resuming so we don't miss events
-              const resumed = await resumeSession(msg.sessionId, msg.content);
+              // Build listener before resuming so it's attached before any broadcasts
+              if (state.sessionUnsubscribe) state.sessionUnsubscribe();
+              const onEvent = (event) => {
+                safeSend(ws, event);
+                handleNotifications(event);
+              };
+              const resumed = await resumeSession(msg.sessionId, msg.content, { listener: onEvent });
               if (resumed) {
-                // Resubscribe to the new session process
-                if (state.sessionUnsubscribe) state.sessionUnsubscribe();
-                state.sessionUnsubscribe = resumed.addListener((event) => {
-                  safeSend(ws, event);
-                  handleNotifications(event);
-                });
+                state.sessionUnsubscribe = resumed.addListener(onEvent);
                 if (messageId) {
                   safeSend(ws, {
                     type: 'message_ack',

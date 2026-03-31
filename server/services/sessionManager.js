@@ -1113,7 +1113,7 @@ async function buildContextPreamble(sessionId) {
 // Guard against concurrent resume calls for the same session
 const resumeInProgress = new Set();
 
-async function resumeSession(sessionId, newMessage) {
+async function resumeSession(sessionId, newMessage, { listener } = {}) {
   if (resumeInProgress.has(sessionId)) {
     const existing = activeSessions.get(sessionId);
     if (existing) {
@@ -1150,6 +1150,11 @@ async function resumeSession(sessionId, newMessage) {
 
   session.resuming = true;
   activeSessions.set(sessionId, session);
+
+  // Attach listener before any broadcasts so the client doesn't miss events
+  if (listener) {
+    session.addListener(listener);
+  }
 
   await query("UPDATE sessions SET status = 'working', ended_at = NULL, last_activity_at = NOW() WHERE id = $1", [sessionId]);
 
