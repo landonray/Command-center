@@ -104,6 +104,12 @@ export function useWebSocket(sessionId) {
 
               break;
 
+            case 'stream_events_history':
+              // Replay buffered stream events from server (for idle sessions)
+              setStreamEvents(data.events);
+              pushEvents(data.events);
+              break;
+
             case 'user_message':
               // Clear from optimistic tracking — it's now confirmed in DB
               optimisticMessagesRef.current = optimisticMessagesRef.current.filter(

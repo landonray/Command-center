@@ -89,6 +89,7 @@ class SessionProcess {
     this.tmuxSessionName = options.tmuxSessionName || null;
     this.outputTail = null; // file watcher for tmux output
     this.resuming = false; // true when restoring context for a resumed session
+    this.streamEventHistory = []; // buffered stream events for replay on reconnect
     this.stderrBuffer = ''; // accumulates stderr for error reporting
   }
 
@@ -564,13 +565,15 @@ class SessionProcess {
     // Fire-and-forget async DB operations — errors logged but don't block event processing
     this._processStreamEventAsync(event).catch(e => console.error('Stream event DB error:', e.message));
 
-    this.broadcast({
+    const streamMsg = {
       type: 'stream_event',
       sessionId: this.id,
       event: event,
       status: this.status,
       timestamp: new Date().toISOString()
-    });
+    };
+    this.streamEventHistory.push(event);
+    this.broadcast(streamMsg);
   }
 
   async _processStreamEventAsync(event) {

@@ -48,6 +48,16 @@ function setupWebSocket(server) {
               errorMessage: session.errorMessage || null,
               timestamp: new Date().toISOString()
             });
+
+            // Replay buffered stream events so CLI panel shows history
+            if (session.streamEventHistory && session.streamEventHistory.length > 0) {
+              safeSend(ws, {
+                type: 'stream_events_history',
+                sessionId: msg.sessionId,
+                events: session.streamEventHistory,
+                timestamp: new Date().toISOString()
+              });
+            }
           } else {
             // Session not in memory — check DB for its status
             const { query } = require('./database');
