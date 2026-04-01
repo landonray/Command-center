@@ -65,33 +65,22 @@ function autoNameLog(...args) {
   console.log('[AutoName]', ...args);
 }
 
-// Resolve full path to claude CLI at startup for reliable invocation
-let claudePath = 'claude';
-try {
-  claudePath = execSync('which claude', { encoding: 'utf8' }).trim();
-  autoNameLog('Claude CLI resolved to:', claudePath);
-} catch (e) {
-  autoNameLog('WARN: Could not resolve claude path, using "claude":', e.message);
-}
+// Use Anthropic SDK directly for auto-naming (avoids Claude CLI stdin/stdout issues)
+const Anthropic = require('@anthropic-ai/sdk');
+const anthropic = new Anthropic();
 
 // Generate a short AI-powered session name from the first user message
 async function generateSessionName(messageText) {
   try {
-    const prompt = `You are a session naming tool. Your ONLY job is to output a concise 3-6 word title. Do NOT respond conversationally. Do NOT ask questions. Do NOT explain anything. Output ONLY the title, nothing else.\n\nIf the message describes a task, name it after the task. If the message is vague or not about a specific task, name it "General Chat".\n\nExamples:\n- "fix the login bug" → Fix Login Page Bug\n- "hello" → General Chat\n- "name this session" → General Chat\n- "add dark mode" → Add Dark Mode Toggle\n\nUser message: ${messageText}\n\nTitle:`;
     autoNameLog('Generating name for:', messageText.slice(0, 80));
-    const { stdout, stderr } = await execFileAsync(claudePath, [
-      '--print', prompt,
-      '--model', 'claude-haiku-4-5',
-      '--max-turns', '1',
-    ], {
-      timeout: 15000,
-      // Close stdin immediately so claude CLI doesn't wait 3s for piped input
-      stdio: ['ignore', 'pipe', 'pipe'],
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 30,
+      system: 'You are a session naming tool. Output ONLY a concise 3-6 word title. No explanation, no quotes, no punctuation except spaces. If the message is vague, output "General Chat".',
+      messages: [{ role: 'user', content: messageText }],
     });
-    if (stderr) autoNameLog('stderr:', stderr);
-    const name = stdout.trim();
+    const name = response.content[0]?.text?.trim() || '';
     autoNameLog('Generated name:', name || '(empty)');
-    // Reject names that are too long (conversational responses) or too short
     if (!name) return null;
     const wordCount = name.split(/\s+/).length;
     if (wordCount > 8 || name.length > 60) {
@@ -101,7 +90,6 @@ async function generateSessionName(messageText) {
     return name;
   } catch (e) {
     autoNameLog('ERROR:', e.message);
-    if (e.stderr) autoNameLog('stderr:', e.stderr);
     return null;
   }
 }
