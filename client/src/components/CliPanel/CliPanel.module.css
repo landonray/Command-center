@@ -4,7 +4,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: var(--sand-light);
+  background: var(--bg-secondary);
 }
 
 .toolbar {
@@ -14,7 +14,7 @@
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  background: var(--sand-light);
+  background: var(--bg-secondary);
 }
 
 .toolbarLabel {
