@@ -1,8 +1,9 @@
 # Mission Control
+![Mission Control 2026-04-01 at 10 26 53 AM](https://github.com/user-attachments/assets/a606053b-b951-4263-84a6-a4d438969957)
 
 **Claude Code in your browser. From your couch.**
 
-The Claude CLI is incredible, but it lives in the terminal. VS Code and Cursor are a fucking faceful. Claude Desktop is nice, but (1) it's stuck on the desktop so you can't take it with you and (2) no hooks.
+The Claude CLI is incredible, but it lives in the terminal. VS Code and Cursor are a faceful. Claude Desktop is nice, but (1) it's stuck on the desktop so you can't take it with you and (2) no hooks.
 
 Mission Control is as close to "Claude Desktop on the web" as you can get — a full web UI for Claude Code that runs on your home server and is accessible from any device. Create sessions, stream output in real-time, approve permissions from your phone, browse files, enforce quality rules, and get push notifications when Claude needs you. All without leaving the browser.
 
@@ -10,7 +11,6 @@ Mission Control is as close to "Claude Desktop on the web" as you can get — a 
 
 - **Session Management** — Create, monitor, resume, and manage multiple Claude Code sessions simultaneously
 - **Real-time Streaming** — WebSocket-based live streaming of AI agent output, messages, and permission requests
-- **Permission Approvals** — Approve or deny tool calls from anywhere, on any device
 - **File Browser** — Browse project file trees, preview code with syntax highlighting, render Markdown, and view git diffs
 - **Live Preview** — Built-in iframe preview panel for web projects (hit the preview tab to see your app running)
 - **Quality Rules Engine** — 21+ lifecycle hooks (SessionStart, Stop, PostToolUse, etc.) with prompt-based, agent-based, and command-based rules, scorecards, and analytics
@@ -20,7 +20,6 @@ Mission Control is as close to "Claude Desktop on the web" as you can get — a 
 - **MCP Integration** — Configure Model Context Protocol servers to auto-attach to new sessions
 - **Session History** — Search previous sessions, view message logs, and daily digests
 - **Mobile Support** — Responsive design with tab-based navigation on mobile, 3-panel layout on desktop
-- **PWA** — Install it as an app on your phone or tablet with offline support
 
 ## Prerequisites
 
@@ -68,6 +67,18 @@ Sessions run inside tmux so they survive server restarts. Without it, sessions f
 brew install tmux
 ```
 
+### Anthropic API Key
+
+Mission Control uses the Anthropic API directly for two things: auto-naming sessions (via Haiku) and running server-side quality checks. Both are extremely cheap — session naming costs fractions of a penny per session. The SDK reads your key from the `ANTHROPIC_API_KEY` environment variable.
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Add it to your `.env` file (see below) or your shell profile.
+
+**Why server-side hooks?** Claude Code's CLI hooks only fire inside the CLI process. Since Mission Control runs sessions via `--print` mode over WebSocket, those lifecycle hooks (PostToolUse, Stop, etc.) never fire. Mission Control reimplements them server-side — it watches the stream for tool use events and runs quality rule prompts against the Anthropic API directly. This is what powers the Quality Rules Engine.
+
 ### GitHub CLI (optional)
 
 Only needed for the "Create New Project" feature.
@@ -99,6 +110,7 @@ Create a `.env` file in the project root:
 
 ```bash
 DATABASE_URL=postgresql://user:pass@host/dbname?sslmode=require
+ANTHROPIC_API_KEY=sk-ant-...
 NODE_ENV=development
 ```
 
