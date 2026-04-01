@@ -10,7 +10,6 @@ Mission Control is as close to "Claude Desktop on the web" as you can get — a 
 
 - **Session Management** — Create, monitor, resume, and manage multiple Claude Code sessions simultaneously
 - **Real-time Streaming** — WebSocket-based live streaming of AI agent output, messages, and permission requests
-- **Permission Approvals** — Approve or deny tool calls from anywhere, on any device
 - **File Browser** — Browse project file trees, preview code with syntax highlighting, render Markdown, and view git diffs
 - **Live Preview** — Built-in iframe preview panel for web projects (hit the preview tab to see your app running)
 - **Quality Rules Engine** — 21+ lifecycle hooks (SessionStart, Stop, PostToolUse, etc.) with prompt-based, agent-based, and command-based rules, scorecards, and analytics
