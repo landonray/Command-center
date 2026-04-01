@@ -1,4 +1,5 @@
 # Mission Control
+![Mission Control 2026-04-01 at 10 26 53 AM](https://github.com/user-attachments/assets/a606053b-b951-4263-84a6-a4d438969957)
 
 **Claude Code in your browser. From your couch.**
 
