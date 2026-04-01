@@ -1,5 +1,5 @@
 const WebSocket = require('ws');
-const { getSession, activeSessions, resumeSession } = require('./services/sessionManager');
+const { getSession, activeSessions, resumeSession, globalEvents } = require('./services/sessionManager');
 const { watchDirectory, unwatchDirectory } = require('./services/fileWatcher');
 const { sendNotification } = require('./services/notificationService');
 
@@ -28,16 +28,12 @@ function setupWebSocket(server) {
           if (session) {
             if (state.sessionUnsubscribe) state.sessionUnsubscribe();
             state.sessionUnsubscribe = session.addListener((event) => {
-              safeSend(ws, event);
-              handleNotifications(event);
-              // Broadcast name updates to ALL clients so the sidebar updates
-              if (event.type === 'session_name_updated') {
-                wss.clients.forEach((client) => {
-                  if (client !== ws && client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify(event));
-                  }
-                });
+              // Skip session_name_updated here — it's handled by the globalEvents
+              // broadcast which sends to ALL clients reliably
+              if (event.type !== 'session_name_updated') {
+                safeSend(ws, event);
               }
+              handleNotifications(event);
             });
 
             safeSend(ws, {
@@ -92,6 +88,12 @@ function setupWebSocket(server) {
         unwatchDirectory(dir);
       }
     });
+  });
+
+  // Listen for global session name updates and broadcast to ALL connected clients.
+  // This ensures the sidebar updates even if no client is subscribed to the specific session.
+  globalEvents.on('session_name_updated', (event) => {
+    broadcast(wss, event);
   });
 
   // Heartbeat to detect broken connections

@@ -4,11 +4,16 @@ const treeKill = require('tree-kill');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const EventEmitter = require('events');
 const { query } = require('../database');
 const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 
 const activeSessions = new Map();
+
+// Global event bus for broadcasting events that need to reach ALL WebSocket clients
+// (not just those subscribed to a specific session)
+const globalEvents = new EventEmitter();
 
 // Resolve ~ to home directory (shell and Node spawn don't expand ~ in all contexts)
 function resolvePath(p) {
@@ -52,19 +57,35 @@ if (tmuxAvailable) {
   try { fs.mkdirSync(TMUX_SCRIPTS_DIR, { recursive: true }); } catch (e) {}
 }
 
+// Resolve full path to claude CLI at startup for reliable invocation
+let claudePath = 'claude';
+try {
+  claudePath = execSync('which claude', { encoding: 'utf8' }).trim();
+  console.log('[AutoName] Claude CLI resolved to:', claudePath);
+} catch (e) {
+  console.warn('[AutoName] Could not resolve claude path, using "claude":', e.message);
+}
+
 // Generate a short AI-powered session name from the first user message
 async function generateSessionName(messageText) {
   try {
     const prompt = `Generate a concise 3-6 word session name that captures the essence of this user message. Return ONLY the name, no quotes, no punctuation, no explanation. Examples: "Fix Login Page Bug", "Add Dark Mode Toggle", "Refactor Database Layer", "Debug API Endpoints".\n\nUser message: ${messageText}`;
-    const { stdout } = await execFileAsync('claude', [
+    console.log('[AutoName] Generating name for:', messageText.slice(0, 80));
+    const { stdout } = await execFileAsync(claudePath, [
       '--print', prompt,
       '--model', 'claude-haiku-4-5',
       '--max-turns', '1',
-    ], { timeout: 15000 });
+    ], {
+      timeout: 15000,
+      // Close stdin immediately so claude CLI doesn't wait 3s for piped input
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
     const name = stdout.trim();
+    console.log('[AutoName] Generated name:', name || '(empty)');
     return name || null;
   } catch (e) {
-    console.error('Failed to generate session name:', e.message);
+    console.error('[AutoName] Failed to generate session name:', e.message);
+    if (e.stderr) console.error('[AutoName] stderr:', e.stderr);
     return null;
   }
 }
@@ -715,23 +736,37 @@ class SessionProcess {
     const msgCount = msgCountResult.rows[0];
     if (msgCount && msgCount.user_message_count === 0) {
       generateSessionName(text).then(async (name) => {
-        if (!name) return;
+        if (!name) {
+          console.log(`[AutoName] No name generated for session ${this.id.slice(0,8)}`);
+          return;
+        }
         const currentResult = await query('SELECT name, working_directory FROM sessions WHERE id = $1', [this.id]);
         const currentSession = currentResult.rows[0];
-        const isDefaultName = currentSession && (
+        if (!currentSession) {
+          console.log(`[AutoName] Session ${this.id.slice(0,8)} not found in DB`);
+          return;
+        }
+        const isDefaultName = (
           currentSession.name === 'New Session' ||
           (currentSession.working_directory && currentSession.name === path.basename(currentSession.working_directory))
         );
+        console.log(`[AutoName] Session ${this.id.slice(0,8)}: current="${currentSession.name}", isDefault=${isDefaultName}, newName="${name}"`);
         if (isDefaultName) {
           await query('UPDATE sessions SET name = $1 WHERE id = $2', [name, this.id]);
-          this.broadcast({
+          const event = {
             type: 'session_name_updated',
             sessionId: this.id,
             name,
             timestamp: new Date().toISOString()
-          });
+          };
+          // Broadcast to session-specific listeners (subscribed clients)
+          this.broadcast(event);
+          // ALSO broadcast globally so ALL connected clients update their sidebar
+          // This ensures the name reaches clients even if no one is subscribed to this session
+          globalEvents.emit('session_name_updated', event);
+          console.log(`[AutoName] Session ${this.id.slice(0,8)} renamed to "${name}" and broadcast`);
         }
-      }).catch(e => console.error('Session name generation error:', e.message));
+      }).catch(e => console.error('[AutoName] Session name generation error:', e.message));
     }
 
     console.log(`sendMessage: inserting message for session ${this.id}, hasAttachments=${!!attachments}`);
@@ -1359,6 +1394,7 @@ module.exports = {
   resumeSession,
   recoverTmuxSessions,
   activeSessions,
+  globalEvents,
   tmuxAvailable,
   VALID_MODELS,
   DEFAULT_MODEL
