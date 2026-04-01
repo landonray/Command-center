@@ -50,11 +50,10 @@ router.get('/', async (req, res) => {
       const wtMatch = s.working_directory.match(/^(.+)\/\.claude\/worktrees\//);
       projectName = wtMatch ? path.basename(wtMatch[1]) : path.basename(s.working_directory);
     }
-    // Compute git pipeline status for non-archived sessions
-    let pipeline = null;
-    if (!s.archived && s.working_directory) {
-      pipeline = getGitPipeline(s.working_directory);
-    }
+    // Skip pipeline for worktree sessions that haven't received init yet
+    // (working_directory still points to main repo, not the worktree)
+    const isWorktreeReady = !s.use_worktree || (s.working_directory && s.working_directory.includes('/.claude/worktrees/'));
+    const needsPipeline = !s.archived && s.working_directory && isWorktreeReady;
 
     enriched.push({
       ...s,
@@ -63,9 +62,18 @@ router.get('/', async (req, res) => {
       pendingPermission: !!(activeInfo?.pendingPermission),
       archived: !!s.archived,
       resumable: s.status === 'ended', // All ended sessions are resumable
-      pipeline
+      pipeline: null, // filled below
+      _needsPipeline: needsPipeline
     });
   }
+
+  // Compute git pipelines in parallel (async)
+  await Promise.all(enriched.map(async (s) => {
+    if (s._needsPipeline) {
+      s.pipeline = await getGitPipeline(s.working_directory);
+    }
+    delete s._needsPipeline;
+  }));
 
   res.json(enriched);
 });
