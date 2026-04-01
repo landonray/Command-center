@@ -57,21 +57,29 @@ if (tmuxAvailable) {
   try { fs.mkdirSync(TMUX_SCRIPTS_DIR, { recursive: true }); } catch (e) {}
 }
 
+// File-based logging for AutoName debugging
+const AUTONAME_LOG = path.join(__dirname, '..', '..', 'autoname.log');
+function autoNameLog(...args) {
+  const line = `[${new Date().toISOString()}] ${args.join(' ')}\n`;
+  fs.appendFileSync(AUTONAME_LOG, line);
+  console.log('[AutoName]', ...args);
+}
+
 // Resolve full path to claude CLI at startup for reliable invocation
 let claudePath = 'claude';
 try {
   claudePath = execSync('which claude', { encoding: 'utf8' }).trim();
-  console.log('[AutoName] Claude CLI resolved to:', claudePath);
+  autoNameLog('Claude CLI resolved to:', claudePath);
 } catch (e) {
-  console.warn('[AutoName] Could not resolve claude path, using "claude":', e.message);
+  autoNameLog('WARN: Could not resolve claude path, using "claude":', e.message);
 }
 
 // Generate a short AI-powered session name from the first user message
 async function generateSessionName(messageText) {
   try {
-    const prompt = `Generate a concise 3-6 word session name that captures the essence of this user message. Return ONLY the name, no quotes, no punctuation, no explanation. Examples: "Fix Login Page Bug", "Add Dark Mode Toggle", "Refactor Database Layer", "Debug API Endpoints".\n\nUser message: ${messageText}`;
-    console.log('[AutoName] Generating name for:', messageText.slice(0, 80));
-    const { stdout } = await execFileAsync(claudePath, [
+    const prompt = `You are a session naming tool. Your ONLY job is to output a concise 3-6 word title. Do NOT respond conversationally. Do NOT ask questions. Do NOT explain anything. Output ONLY the title, nothing else.\n\nIf the message describes a task, name it after the task. If the message is vague or not about a specific task, name it "General Chat".\n\nExamples:\n- "fix the login bug" → Fix Login Page Bug\n- "hello" → General Chat\n- "name this session" → General Chat\n- "add dark mode" → Add Dark Mode Toggle\n\nUser message: ${messageText}\n\nTitle:`;
+    autoNameLog('Generating name for:', messageText.slice(0, 80));
+    const { stdout, stderr } = await execFileAsync(claudePath, [
       '--print', prompt,
       '--model', 'claude-haiku-4-5',
       '--max-turns', '1',
@@ -80,12 +88,20 @@ async function generateSessionName(messageText) {
       // Close stdin immediately so claude CLI doesn't wait 3s for piped input
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    if (stderr) autoNameLog('stderr:', stderr);
     const name = stdout.trim();
-    console.log('[AutoName] Generated name:', name || '(empty)');
-    return name || null;
+    autoNameLog('Generated name:', name || '(empty)');
+    // Reject names that are too long (conversational responses) or too short
+    if (!name) return null;
+    const wordCount = name.split(/\s+/).length;
+    if (wordCount > 8 || name.length > 60) {
+      autoNameLog(`Rejected name (too long: ${wordCount} words, ${name.length} chars)`);
+      return null;
+    }
+    return name;
   } catch (e) {
-    console.error('[AutoName] Failed to generate session name:', e.message);
-    if (e.stderr) console.error('[AutoName] stderr:', e.stderr);
+    autoNameLog('ERROR:', e.message);
+    if (e.stderr) autoNameLog('stderr:', e.stderr);
     return null;
   }
 }
@@ -739,20 +755,21 @@ class SessionProcess {
     if (msgCount && msgCount.user_message_count === 0) {
       generateSessionName(text).then(async (name) => {
         if (!name) {
-          console.log(`[AutoName] No name generated for session ${this.id.slice(0,8)}`);
+          autoNameLog(`No name generated for session ${this.id.slice(0,8)}`);
           return;
         }
         const currentResult = await query('SELECT name, working_directory FROM sessions WHERE id = $1', [this.id]);
         const currentSession = currentResult.rows[0];
         if (!currentSession) {
-          console.log(`[AutoName] Session ${this.id.slice(0,8)} not found in DB`);
+          autoNameLog(`Session ${this.id.slice(0,8)} not found in DB`);
           return;
         }
+        const wdBasename = currentSession.working_directory ? path.basename(currentSession.working_directory) : null;
         const isDefaultName = (
           currentSession.name === 'New Session' ||
-          (currentSession.working_directory && currentSession.name === path.basename(currentSession.working_directory))
+          (wdBasename && currentSession.name === wdBasename)
         );
-        console.log(`[AutoName] Session ${this.id.slice(0,8)}: current="${currentSession.name}", isDefault=${isDefaultName}, newName="${name}"`);
+        autoNameLog(`Session ${this.id.slice(0,8)}: current="${currentSession.name}", wdBasename="${wdBasename}", isDefault=${isDefaultName}, newName="${name}"`);
         if (isDefaultName) {
           await query('UPDATE sessions SET name = $1 WHERE id = $2', [name, this.id]);
           const event = {
@@ -766,9 +783,11 @@ class SessionProcess {
           // ALSO broadcast globally so ALL connected clients update their sidebar
           // This ensures the name reaches clients even if no one is subscribed to this session
           globalEvents.emit('session_name_updated', event);
-          console.log(`[AutoName] Session ${this.id.slice(0,8)} renamed to "${name}" and broadcast`);
+          autoNameLog(`Session ${this.id.slice(0,8)} renamed to "${name}" and broadcast`);
+        } else {
+          autoNameLog(`Session ${this.id.slice(0,8)} skipped — name "${currentSession.name}" is not default`);
         }
-      }).catch(e => console.error('[AutoName] Session name generation error:', e.message));
+      }).catch(e => autoNameLog('Session name generation error:', e.message));
     }
 
     console.log(`sendMessage: inserting message for session ${this.id}, hasAttachments=${!!attachments}`);
