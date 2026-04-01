@@ -2,7 +2,7 @@
 
 **Claude Code in your browser. From your couch.**
 
-The Claude CLI is incredible, but it lives in the terminal. VS Code and Cursor are a fucking faceful. Claude Desktop is nice, but (1) it's stuck on the desktop so you can't take it with you and (2) no hooks.
+The Claude CLI is incredible, but it lives in the terminal. VS Code and Cursor are a faceful. Claude Desktop is nice, but (1) it's stuck on the desktop so you can't take it with you and (2) no hooks.
 
 Mission Control is as close to "Claude Desktop on the web" as you can get — a full web UI for Claude Code that runs on your home server and is accessible from any device. Create sessions, stream output in real-time, approve permissions from your phone, browse files, enforce quality rules, and get push notifications when Claude needs you. All without leaving the browser.
 
