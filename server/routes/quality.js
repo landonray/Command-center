@@ -82,6 +82,29 @@ router.put('/rules/:id/severity', async (req, res) => {
   res.json(rule);
 });
 
+// Update rule trigger (fires_on)
+router.put('/rules/:id/trigger', async (req, res) => {
+  const { fires_on } = req.body;
+  const validTriggers = [
+    'Stop', 'PostToolUse', 'PreToolUse', 'PostToolUseFailure',
+    'SessionStart', 'SessionEnd', 'SubagentStop', 'Notification'
+  ];
+  if (!fires_on || !validTriggers.includes(fires_on)) {
+    return res.status(400).json({ error: `fires_on must be one of: ${validTriggers.join(', ')}` });
+  }
+
+  await query('UPDATE quality_rules SET fires_on = $1, updated_at = NOW() WHERE id = $2',
+    [fires_on, req.params.id]);
+
+  const { rows } = await query('SELECT * FROM quality_rules WHERE id = $1', [req.params.id]);
+  const rule = rows[0];
+  if (!rule) return res.status(404).json({ error: 'Rule not found' });
+
+  invalidateRulesCache();
+  await generateHooksConfig();
+  res.json(rule);
+});
+
 // Update rule execution mode (cli or api)
 router.put('/rules/:id/execution-mode', async (req, res) => {
   const { mode } = req.body;
