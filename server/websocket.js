@@ -224,7 +224,8 @@ async function handleMessage(ws, msg, state) {
               };
               const resumed = await resumeSession(msg.sessionId, msg.content, { listener: onEvent });
               if (resumed) {
-                state.sessionUnsubscribe = resumed.addListener(onEvent);
+                // resumeSession already calls addListener internally and stores the unsubscribe
+                state.sessionUnsubscribe = resumed._listenerUnsubscribe || (() => {});
                 if (messageId) {
                   safeSend(ws, {
                     type: 'message_ack',
