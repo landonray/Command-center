@@ -634,6 +634,14 @@ class SessionProcess {
     };
     this.streamEventHistory.push(event);
     this.broadcast(streamMsg);
+
+    // Persist stream event to DB for CLI history on reload
+    if (event.type === 'tool_use' || event.type === 'tool_result' || event.type === 'assistant' || event.type === 'user' || event.type === 'system' || event.type === 'result') {
+      query(
+        `INSERT INTO stream_events (session_id, event_type, event_data, timestamp) VALUES ($1, $2, $3, NOW())`,
+        [this.id, event.type, JSON.stringify(event)]
+      ).catch(e => console.error('Failed to persist stream event:', e.message));
+    }
   }
 
   async _processStreamEventAsync(event) {

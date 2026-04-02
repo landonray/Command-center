@@ -1,51 +1,104 @@
 // client/src/components/CliPanel/CliPanel.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { subscribe, getEvents, clearEvents } from '../../hooks/streamEventStore';
+import { api } from '../../utils/api';
 import styles from './CliPanel.module.css';
 
 const MAX_LINES = 5000;
 
+function formatToolUseBlock(block) {
+  const name = block.name || 'unknown';
+  let args = '';
+  if (block.input) {
+    const inp = block.input;
+    args = inp.command || inp.path || inp.file_path || inp.pattern || inp.description || JSON.stringify(inp).slice(0, 120);
+  }
+  return { text: `▶ ${name}${args ? `  ${args}` : ''}`, variant: 'tool' };
+}
+
+function formatToolResultBlock(block) {
+  const raw = block.content || '';
+  const text = typeof raw === 'string' ? raw : JSON.stringify(raw);
+  const trimmed = text.trim().slice(0, 300);
+  if (!trimmed) return null;
+  return { text: `  ${trimmed}${text.length > 300 ? ' …' : ''}`, variant: 'result' };
+}
+
+// Returns an array of lines (one event can produce multiple lines)
 function formatStreamEvent(event) {
-  if (!event) return null;
+  if (!event) return [];
+  const lines = [];
+
   switch (event.type) {
     case 'assistant': {
       const msg = event.message;
-      if (!msg) return null;
+      if (!msg) break;
+      const blocks = Array.isArray(msg.content) ? msg.content : [];
+
+      // Extract text blocks
       let text = '';
       if (typeof msg === 'string') {
         text = msg;
-      } else if (Array.isArray(msg.content)) {
-        text = msg.content.filter(b => b.type === 'text').map(b => b.text).join('');
+      } else if (blocks.length > 0) {
+        text = blocks.filter(b => b.type === 'text').map(b => b.text).join('');
       } else if (typeof msg.content === 'string') {
         text = msg.content;
       }
-      if (!text.trim()) return null;
-      return { text: `Claude: ${text}`, variant: 'assistant' };
+      if (text.trim()) {
+        lines.push({ text: `Claude: ${text}`, variant: 'assistant' });
+      }
+
+      // Extract tool_use blocks (bash commands, file reads, etc.)
+      for (const block of blocks) {
+        if (block.type === 'tool_use') {
+          lines.push(formatToolUseBlock(block));
+        }
+      }
+      break;
+    }
+    case 'user': {
+      // Tool results come as user messages with tool_result content blocks
+      const msg = event.message;
+      if (!msg) break;
+      const blocks = Array.isArray(msg.content) ? msg.content : [];
+      for (const block of blocks) {
+        if (block.type === 'tool_result') {
+          const line = formatToolResultBlock(block);
+          if (line) lines.push(line);
+        }
+      }
+      // Also check tool_use_result at event level (alternate format)
+      if (event.tool_use_result) {
+        const content = event.tool_use_result.content || event.tool_use_result.file?.content || '';
+        if (content) {
+          const trimmed = String(content).trim().slice(0, 300);
+          if (trimmed) {
+            lines.push({ text: `  ${trimmed}${String(content).length > 300 ? ' …' : ''}`, variant: 'result' });
+          }
+        }
+      }
+      break;
     }
     case 'tool_use': {
-      const name = event.tool || event.name || 'unknown';
-      let args = '';
-      if (event.input) {
-        const inp = event.input;
-        args = inp.command || inp.path || inp.file_path || inp.pattern || inp.description || JSON.stringify(inp).slice(0, 120);
-      }
-      return { text: `▶ ${name}${args ? `  ${args}` : ''}`, variant: 'tool' };
+      // Standalone tool_use events (older format)
+      lines.push(formatToolUseBlock(event));
+      break;
     }
     case 'tool_result': {
-      if (!event.content) return null;
-      const text = typeof event.content === 'string' ? event.content : JSON.stringify(event.content);
-      const trimmed = text.trim().slice(0, 300);
-      if (!trimmed) return null;
-      return { text: `  ${trimmed}${text.length > 300 ? ' …' : ''}`, variant: 'result' };
+      // Standalone tool_result events (older format)
+      const line = formatToolResultBlock(event);
+      if (line) lines.push(line);
+      break;
     }
     case 'system':
-      if (event.subtype === 'init') return { text: `[session started]`, variant: 'muted' };
-      return null;
+      if (event.subtype === 'init') lines.push({ text: `[session started]`, variant: 'muted' });
+      break;
     case 'result':
-      return { text: `[done]`, variant: 'muted' };
-    default:
-      return null;
+      lines.push({ text: `[done]`, variant: 'muted' });
+      break;
   }
+
+  return lines;
 }
 
 export default function CliPanel({ sessionId }) {
@@ -54,12 +107,34 @@ export default function CliPanel({ sessionId }) {
   const outputRef = useRef(null);
   const processedCountRef = useRef(0);
 
-  // Reset when session changes — clear global event store so stale data isn't reprocessed
+  // Track how many events came from the DB so we skip duplicates from WebSocket replay
+  const dbEventCountRef = useRef(0);
+
+  // Reset when session changes — load persisted events from DB, then subscribe to live events
   useEffect(() => {
     setLines([]);
     setAtBottom(true);
     processedCountRef.current = 0;
+    dbEventCountRef.current = 0;
     clearEvents();
+
+    if (!sessionId) return;
+    let cancelled = false;
+
+    api.get(`/api/sessions/${sessionId}/stream-events`).then(result => {
+      if (cancelled || !result.events || result.events.length === 0) return;
+      // Format persisted events into lines
+      const historicLines = [];
+      for (const event of result.events) {
+        historicLines.push(...formatStreamEvent(event));
+      }
+      if (historicLines.length > 0) {
+        setLines(historicLines);
+      }
+      dbEventCountRef.current = result.events.length;
+    }).catch(e => console.error('Failed to load CLI history:', e.message));
+
+    return () => { cancelled = true; };
   }, [sessionId]);
 
   // Subscribe to shared stream event store
@@ -67,13 +142,20 @@ export default function CliPanel({ sessionId }) {
     function processEvents(events) {
       if (!events || events.length <= processedCountRef.current) return;
 
-      const newEvents = events.slice(processedCountRef.current);
+      // Skip events already loaded from DB to avoid duplicates.
+      // When WebSocket replays stream_events_history, those overlap with DB events.
+      const startIdx = Math.max(processedCountRef.current, dbEventCountRef.current);
+      if (events.length <= startIdx) {
+        processedCountRef.current = events.length;
+        return;
+      }
+
+      const newEvents = events.slice(startIdx);
       processedCountRef.current = events.length;
 
       const newLines = [];
       for (const event of newEvents) {
-        const line = formatStreamEvent(event);
-        if (line) newLines.push(line);
+        newLines.push(...formatStreamEvent(event));
       }
 
       if (newLines.length > 0) {
