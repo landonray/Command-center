@@ -112,6 +112,7 @@ export function AppProvider({ children }) {
 
     ws.onopen = () => {
       dispatch({ type: 'SET_CONNECTED', payload: true });
+      window.dispatchEvent(new Event('ws-reconnected'));
     };
 
     ws.onmessage = (event) => {
