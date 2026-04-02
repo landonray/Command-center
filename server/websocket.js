@@ -2,6 +2,7 @@ const WebSocket = require('ws');
 const { getSession, activeSessions, resumeSession, globalEvents } = require('./services/sessionManager');
 const { watchDirectory, unwatchDirectory } = require('./services/fileWatcher');
 const { sendNotification } = require('./services/notificationService');
+const { tokensMatch } = require('./middleware/auth');
 
 function setupWebSocket(server) {
   const wss = new WebSocket.Server({ server, path: '/ws' });
@@ -11,7 +12,7 @@ function setupWebSocket(server) {
     if (AUTH_TOKEN) {
       const url = new URL(req.url, 'http://localhost');
       const token = url.searchParams.get('token');
-      if (token !== AUTH_TOKEN) {
+      if (!token || !tokensMatch(token, AUTH_TOKEN)) {
         ws.close(4001, 'Unauthorized');
         return;
       }

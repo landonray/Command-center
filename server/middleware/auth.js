@@ -1,3 +1,10 @@
+const crypto = require('crypto');
+
+function tokensMatch(a, b) {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
 function requireAuth(req, res, next) {
   const AUTH_TOKEN = process.env.MC_AUTH_TOKEN;
 
@@ -12,11 +19,11 @@ function requireAuth(req, res, next) {
   }
 
   const token = authHeader.slice('Bearer '.length);
-  if (token !== AUTH_TOKEN) {
+  if (!tokensMatch(token, AUTH_TOKEN)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   next();
 }
 
-module.exports = { requireAuth };
+module.exports = { requireAuth, tokensMatch };
