@@ -96,6 +96,15 @@
   margin: 0;
 }
 
+.userMessage .text a {
+  color: #faf0e0;
+  text-decoration: underline;
+}
+
+.userMessage .text a:hover {
+  color: #fff;
+}
+
 .assistantMessage .text {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
