@@ -16,7 +16,7 @@ const { execFile } = require('child_process');
  */
 function run(prompt) {
   return new Promise((resolve, reject) => {
-    const child = execFile('claude', ['--print', '-p', prompt], {
+    execFile('claude', ['--print', '-p', prompt], {
       maxBuffer: 1024 * 1024, // 1MB
       timeout: 120000, // 2 minutes
     }, (error, stdout, stderr) => {

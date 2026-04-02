@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../database');
 const { generateHooksConfig, removeHooksConfig, getHooksStatus } = require('../services/hooksGenerator');
+const { invalidateRulesCache } = require('../services/qualityRunner');
 
 // ==========================================
 // RULES MANAGEMENT
@@ -95,6 +96,7 @@ router.put('/rules/:id/execution-mode', async (req, res) => {
   const rule = rows[0];
   if (!rule) return res.status(404).json({ error: 'Rule not found' });
 
+  invalidateRulesCache();
   res.json(rule);
 });
 
