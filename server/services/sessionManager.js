@@ -687,14 +687,35 @@ class SessionProcess {
         }
         break;
 
-      case 'tool_use':
+      case 'tool_use': {
         this.status = 'working';
         this.updateDbStatus('working');
-        await query(
-          `UPDATE sessions SET tool_call_count = tool_call_count + 1, last_action_summary = $1, last_activity_at = NOW() WHERE id = $2`,
-          [`Tool: ${event.tool || event.name || 'unknown'}`, this.id]
-        );
+        const toolName = event.tool || event.name || 'unknown';
+        const input = event.input || {};
+        let added = 0, removed = 0;
+
+        if ((toolName === 'Edit' || toolName === 'edit') && input.old_string != null && input.new_string != null) {
+          const oldLines = input.old_string.split('\n').length;
+          const newLines = input.new_string.split('\n').length;
+          if (newLines > oldLines) added = newLines - oldLines;
+          if (oldLines > newLines) removed = oldLines - newLines;
+        } else if ((toolName === 'Write' || toolName === 'write') && input.content != null) {
+          added = input.content.split('\n').length;
+        }
+
+        if (added > 0 || removed > 0) {
+          await query(
+            `UPDATE sessions SET tool_call_count = tool_call_count + 1, lines_added = lines_added + $1, lines_removed = lines_removed + $2, last_action_summary = $3, last_activity_at = NOW() WHERE id = $4`,
+            [added, removed, `Tool: ${toolName}`, this.id]
+          );
+        } else {
+          await query(
+            `UPDATE sessions SET tool_call_count = tool_call_count + 1, last_action_summary = $1, last_activity_at = NOW() WHERE id = $2`,
+            [`Tool: ${toolName}`, this.id]
+          );
+        }
         break;
+      }
 
       case 'tool_result':
         if (event.content) {

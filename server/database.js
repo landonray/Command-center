@@ -101,6 +101,8 @@ async function initializeDb() {
     `ALTER TABLE quality_rules ADD COLUMN IF NOT EXISTS send_fail_to_agent INTEGER DEFAULT 0`,
     `ALTER TABLE quality_rules ADD COLUMN IF NOT EXISTS send_fail_requires_spec INTEGER DEFAULT 0`,
     `ALTER TABLE quality_rules ADD COLUMN IF NOT EXISTS execution_mode TEXT DEFAULT 'cli'`,
+    `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS lines_added INTEGER DEFAULT 0`,
+    `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS lines_removed INTEGER DEFAULT 0`,
   ];
   for (const migration of migrations) {
     try { await sql.query(migration); } catch (e) { console.error('Migration failed:', migration, e.message); }

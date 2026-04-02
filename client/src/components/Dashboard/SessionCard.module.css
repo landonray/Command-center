@@ -97,6 +97,18 @@
   color: var(--text-secondary);
 }
 
+.diffAdded {
+  color: var(--success);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.diffRemoved {
+  color: var(--error);
+  font-weight: 600;
+  font-size: 12px;
+}
+
 .summary {
   font-size: 12px;
   color: var(--text-muted);
