@@ -807,12 +807,18 @@ class SessionProcess {
           autoNameLog(`Session ${this.id.slice(0,8)} not found in DB`);
           return;
         }
-        const wdBasename = currentSession.working_directory ? path.basename(currentSession.working_directory) : null;
+        const wd = currentSession.working_directory || '';
+        const wdBasename = wd ? path.basename(wd) : null;
+        // For worktree sessions, the session name may match the project root (e.g. "Command Center")
+        // while wdBasename is the worktree folder (e.g. "noble-forging-torvalds")
+        const worktreeMatch = wd.includes('.claude/worktrees/') ? wd.match(/^(.+?)\/\.claude\/worktrees\//) : null;
+        const projectBasename = worktreeMatch ? path.basename(worktreeMatch[1]) : null;
         const isDefaultName = (
           currentSession.name === 'New Session' ||
-          (wdBasename && currentSession.name === wdBasename)
+          (wdBasename && currentSession.name === wdBasename) ||
+          (projectBasename && currentSession.name === projectBasename)
         );
-        autoNameLog(`Session ${this.id.slice(0,8)}: current="${currentSession.name}", wdBasename="${wdBasename}", isDefault=${isDefaultName}, newName="${name}"`);
+        autoNameLog(`Session ${this.id.slice(0,8)}: current="${currentSession.name}", wdBasename="${wdBasename}", projectBasename="${projectBasename}", isDefault=${isDefaultName}, newName="${name}"`);
         if (isDefaultName) {
           await query('UPDATE sessions SET name = $1 WHERE id = $2', [name, this.id]);
           const event = {
