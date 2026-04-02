@@ -21,6 +21,17 @@ const hookTypeLabels = {
   'command+prompt': 'Command + Prompt',
 };
 
+const triggerOptions = [
+  { value: 'Stop', label: 'Stop' },
+  { value: 'PostToolUse', label: 'PostToolUse' },
+  { value: 'PreToolUse', label: 'PreToolUse' },
+  { value: 'PostToolUseFailure', label: 'PostToolUseFailure' },
+  { value: 'SessionStart', label: 'SessionStart' },
+  { value: 'SessionEnd', label: 'SessionEnd' },
+  { value: 'SubagentStop', label: 'SubagentStop' },
+  { value: 'Notification', label: 'Notification' },
+];
+
 const severityColors = {
   high: 'var(--error)',
   medium: 'var(--warning)',
@@ -107,6 +118,13 @@ export default function RulesConfig() {
   const updateExecutionMode = async (ruleId, mode) => {
     try {
       await api.put(`/api/quality/rules/${ruleId}/execution-mode`, { mode });
+      await loadRules();
+    } catch (e) {}
+  };
+
+  const updateTrigger = async (ruleId, fires_on) => {
+    try {
+      await api.put(`/api/quality/rules/${ruleId}/trigger`, { fires_on });
       await loadRules();
     } catch (e) {}
   };
@@ -270,6 +288,19 @@ export default function RulesConfig() {
                 {isExpanded && (
                   <div className={styles.ruleBody}>
                     <p className={styles.ruleDescription}>{rule.description}</p>
+
+                    <div className={styles.executionModeRow}>
+                      <span className={styles.executionModeLabel}>Trigger</span>
+                      <select
+                        className={styles.severitySelect}
+                        value={triggerOptions.find(t => rule.fires_on.startsWith(t.value))?.value || rule.fires_on}
+                        onChange={e => updateTrigger(rule.id, e.target.value)}
+                      >
+                        {triggerOptions.map(t => (
+                          <option key={t.value} value={t.value}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
 
                     <div className={styles.executionModeRow}>
                       <span className={styles.executionModeLabel}>Execution</span>
