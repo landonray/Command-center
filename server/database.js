@@ -69,7 +69,8 @@ async function initializeDb() {
       enabled INTEGER DEFAULT 1, prompt TEXT, script TEXT, config TEXT, category TEXT,
       send_fail_to_agent INTEGER DEFAULT 0, send_fail_requires_spec INTEGER DEFAULT 0,
       execution_mode TEXT DEFAULT 'cli',
-      sort_order INTEGER DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+      sort_order INTEGER DEFAULT 0, seed_version INTEGER DEFAULT 1,
+      created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS quality_results (
       id SERIAL PRIMARY KEY, session_id TEXT REFERENCES sessions(id),
@@ -132,14 +133,26 @@ async function initializeDb() {
     }
   }
 
+  // Add seed_version column for existing databases
+  try {
+    await query(`ALTER TABLE quality_rules ADD COLUMN IF NOT EXISTS seed_version INTEGER DEFAULT 1`);
+  } catch (e) {
+    // Column may already exist
+  }
+
   await seedQualityRules();
 }
 
 async function seedQualityRules() {
   const insertSql = `
-    INSERT INTO quality_rules (id, name, description, hook_type, fires_on, severity, enabled, prompt, script, config, category, sort_order, send_fail_to_agent, send_fail_requires_spec, execution_mode)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-    ON CONFLICT (id) DO NOTHING
+    INSERT INTO quality_rules (id, name, description, hook_type, fires_on, severity, enabled, prompt, script, config, category, sort_order, send_fail_to_agent, send_fail_requires_spec, execution_mode, seed_version)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 2)
+    ON CONFLICT (id) DO UPDATE SET
+      prompt = EXCLUDED.prompt,
+      description = EXCLUDED.description,
+      config = EXCLUDED.config,
+      seed_version = EXCLUDED.seed_version
+    WHERE quality_rules.seed_version IS NULL OR quality_rules.seed_version < EXCLUDED.seed_version
   `;
 
   const rules = [
