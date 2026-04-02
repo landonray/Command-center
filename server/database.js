@@ -78,7 +78,14 @@ async function initializeDb() {
     )`,
     `CREATE INDEX IF NOT EXISTS idx_quality_results_session ON quality_results(session_id)`,
     `CREATE INDEX IF NOT EXISTS idx_quality_results_rule ON quality_results(rule_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_quality_results_timestamp ON quality_results(timestamp)`
+    `CREATE INDEX IF NOT EXISTS idx_quality_results_timestamp ON quality_results(timestamp)`,
+    `CREATE TABLE IF NOT EXISTS stream_events (
+      id SERIAL PRIMARY KEY, session_id TEXT NOT NULL REFERENCES sessions(id),
+      event_type TEXT NOT NULL, event_data TEXT NOT NULL,
+      timestamp TEXT DEFAULT NOW()
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_stream_events_session ON stream_events(session_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_stream_events_timestamp ON stream_events(session_id, timestamp)`
   ];
 
   for (const stmt of statements) {

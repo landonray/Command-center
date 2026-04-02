@@ -263,6 +263,24 @@ router.get('/:id/messages', async (req, res) => {
   }
 });
 
+// Get session stream events (CLI history)
+router.get('/:id/stream-events', async (req, res) => {
+  try {
+    const events = (await query(`
+      SELECT event_type, event_data, timestamp FROM stream_events
+      WHERE session_id = $1
+      ORDER BY timestamp ASC
+    `, [req.params.id])).rows;
+
+    res.json({
+      events: events.map(e => JSON.parse(e.event_data))
+    });
+  } catch (err) {
+    console.error(`[API] Failed to load stream events for session ${req.params.id}:`, err.message);
+    res.status(500).json({ error: 'Failed to load stream events' });
+  }
+});
+
 // Get session summary
 router.get('/:id/summary', async (req, res) => {
   const summary = (await query(`
