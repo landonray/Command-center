@@ -104,7 +104,10 @@ export function AppProvider({ children }) {
 
   const connectWebSocket = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const authToken = import.meta.env.VITE_MC_AUTH_TOKEN;
+    const wsUrl = authToken
+      ? `${protocol}//${window.location.host}/ws?token=${authToken}`
+      : `${protocol}//${window.location.host}/ws`;
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;

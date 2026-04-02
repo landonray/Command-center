@@ -6,7 +6,17 @@ const { sendNotification } = require('./services/notificationService');
 function setupWebSocket(server) {
   const wss = new WebSocket.Server({ server, path: '/ws' });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
+    const AUTH_TOKEN = process.env.MC_AUTH_TOKEN;
+    if (AUTH_TOKEN) {
+      const url = new URL(req.url, 'http://localhost');
+      const token = url.searchParams.get('token');
+      if (token !== AUTH_TOKEN) {
+        ws.close(4001, 'Unauthorized');
+        return;
+      }
+    }
+
     // Mutable state object shared between all handlers for this connection.
     // Using an object (not bare variables) so handleMessage can mutate it
     // and the changes are visible to the close handler and future messages.

@@ -32,7 +32,11 @@ export function useWebSocket(sessionId) {
 
     function connect() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      const authToken = import.meta.env.VITE_MC_AUTH_TOKEN;
+      const wsUrl = authToken
+        ? `${protocol}//${window.location.host}/ws?token=${authToken}`
+        : `${protocol}//${window.location.host}/ws`;
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {

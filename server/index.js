@@ -15,6 +15,9 @@ const PORT = process.env.SERVER_PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+const { requireAuth } = require('./middleware/auth');
+app.use('/api', requireAuth);
+
 // API Routes
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/files', require('./routes/files'));
