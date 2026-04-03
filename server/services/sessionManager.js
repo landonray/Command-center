@@ -1302,6 +1302,24 @@ async function resumeSession(sessionId, newMessage, { listener } = {}) {
 
   await query("UPDATE sessions SET status = 'working', ended_at = NULL, last_activity_at = NOW() WHERE id = $1", [sessionId]);
 
+  // Replay stream event history from DB so the CLI panel's dedup mechanism works.
+  // Without this, the client never receives stream_events_history (because the session
+  // wasn't in memory when subscribe_session ran), and dbEventCountRef blocks live events.
+  const dbStreamEvents = await query(
+    'SELECT event_data FROM stream_events WHERE session_id = $1 ORDER BY timestamp ASC',
+    [sessionId]
+  );
+  if (dbStreamEvents.rows.length > 0) {
+    const events = dbStreamEvents.rows.map(r => JSON.parse(r.event_data));
+    session.streamEventHistory = events;
+    session.broadcast({
+      type: 'stream_events_history',
+      sessionId: sessionId,
+      events: events,
+      timestamp: new Date().toISOString()
+    });
+  }
+
   session.broadcast({
     type: 'session_resuming',
     sessionId: sessionId,
