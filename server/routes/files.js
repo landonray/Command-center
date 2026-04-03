@@ -9,7 +9,7 @@ const { execSync, exec } = require('child_process');
 function safeResolvePath(inputPath) {
   const home = process.env.HOME || '/tmp';
   const resolved = path.resolve(inputPath.replace(/^~/, home));
-  if (!resolved.startsWith(home)) {
+  if (resolved !== home && !resolved.startsWith(home + '/')) {
     return null;
   }
   return resolved;
