@@ -32,7 +32,7 @@ export function useWebSocket(sessionId) {
 
     function connect() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsHost = window.location.hostname + ':3000';
+      const wsHost = window.location.hostname + ':3001';
       const ws = new WebSocket(`${protocol}//${wsHost}/ws`);
       wsRef.current = ws;
 

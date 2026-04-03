@@ -9,7 +9,7 @@ const { setupWebSocket } = require('./websocket');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = process.env.SERVER_PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors());

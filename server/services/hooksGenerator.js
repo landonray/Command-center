@@ -5,7 +5,7 @@ const { query } = require('../database');
 
 const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
 const SCRIPTS_DIR = path.join(os.homedir(), '.claude', 'mission-control-hooks');
-const CALLBACK_URL = 'http://localhost:3000/api/quality/results';
+const CALLBACK_URL = 'http://localhost:3001/api/quality/results';
 
 /**
  * Generates Claude Code hooks configuration from active quality rules

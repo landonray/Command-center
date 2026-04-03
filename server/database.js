@@ -572,7 +572,7 @@ PASS: Visual output matches design expectations.`,
       script: `#!/bin/bash
 # Capture screenshot of rendered page for visual comparison
 # Requires a running dev server and a headless browser tool
-URL="\${VISUAL_URL:-http://localhost:3000}"
+URL="\${VISUAL_URL:-http://localhost:3001}"
 SCREENSHOT_DIR="/tmp/mission-control-screenshots"
 mkdir -p "$SCREENSHOT_DIR"
 TIMESTAMP=$(date +%s)
@@ -659,7 +659,7 @@ CHANGED_FILES=$(cd "$CWD" 2>/dev/null && git diff --name-only HEAD 2>/dev/null |
 CHANGED_FILES="\${CHANGED_FILES:-0}"
 
 # Push summary to Mission Control
-curl -s -X POST http://localhost:3000/api/history/auto-summary \\
+curl -s -X POST http://localhost:3001/api/history/auto-summary \\
   -H "Content-Type: application/json" \\
   -d "{\\"session_id\\":\\"$SID\\",\\"branch\\":\\"$BRANCH\\",\\"files_changed\\":$CHANGED_FILES}" > /dev/null 2>&1
 
@@ -775,7 +775,7 @@ echo "Tool $TOOL failed: $ERROR"
 # Send push notification for critical failures
 if echo "$TOOL" | grep -qiE '(test|build|deploy)'; then
   SAFE_TOOL=$(echo "$TOOL" | sed 's/["\\\\/]/ /g' | head -c 100)
-  curl -s -X POST http://localhost:3000/api/notifications/push \\
+  curl -s -X POST http://localhost:3001/api/notifications/push \\
     -H "Content-Type: application/json" \\
     -d "{\\"title\\":\\"Tool Failure\\",\\"body\\":\\"$SAFE_TOOL failed\\",\\"type\\":\\"error\\"}" > /dev/null 2>&1
 fi
@@ -848,7 +848,7 @@ NOTIFICATION_MESSAGE="\${NOTIFICATION_MESSAGE:-Claude Code notification}"
 # Truncate and sanitize message for JSON
 BODY=$(echo "$NOTIFICATION_MESSAGE" | sed 's/["\\\\/]/ /g' | head -c 200)
 
-curl -s -X POST http://localhost:3000/api/notifications/push \\
+curl -s -X POST http://localhost:3001/api/notifications/push \\
   -H "Content-Type: application/json" \\
   -d "{\\"title\\":\\"Claude Code\\",\\"body\\":\\"$BODY\\",\\"type\\":\\"$NOTIFICATION_TYPE\\",\\"session_id\\":\\"$SID\\"}" > /dev/null 2>&1
 
@@ -876,7 +876,7 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/transcript-$SID-$TIMESTAMP.json"
 
 # Fetch conversation from Mission Control API
-curl -s "http://localhost:3000/api/sessions/$SID/messages?limit=10000" > "$BACKUP_FILE" 2>/dev/null
+curl -s "http://localhost:3001/api/sessions/$SID/messages?limit=10000" > "$BACKUP_FILE" 2>/dev/null
 
 if [ -f "$BACKUP_FILE" ] && [ -s "$BACKUP_FILE" ]; then
   echo "PASS: Conversation backed up to $BACKUP_FILE"
@@ -1005,7 +1005,7 @@ NEW_CWD="\${NEW_CWD:-$(pwd)}"
 
 # Sanitize path for JSON safety
 SAFE_CWD=$(echo "$NEW_CWD" | sed 's/["\\\\/]/\\\\&/g')
-curl -s -X POST http://localhost:3000/api/sessions/cwd-update \\
+curl -s -X POST http://localhost:3001/api/sessions/cwd-update \\
   -H "Content-Type: application/json" \\
   -d "{\\"session_id\\":\\"$SID\\",\\"working_directory\\":\\"$SAFE_CWD\\"}" > /dev/null 2>&1
 
@@ -1159,7 +1159,7 @@ BODY=$(echo "$TASK_DESCRIPTION" | head -c 200 | sed 's/"/\\\\"/g' | tr '\\n' ' '
 echo "Task completed: $BODY"
 
 # Send push notification
-curl -s -X POST http://localhost:3000/api/notifications/push \\
+curl -s -X POST http://localhost:3001/api/notifications/push \\
   -H "Content-Type: application/json" \\
   -d "{\\"title\\":\\"Task Completed\\",\\"body\\":\\"$BODY\\",\\"type\\":\\"task_complete\\",\\"session_id\\":\\"$SID\\"}" > /dev/null 2>&1
 
@@ -1187,7 +1187,7 @@ echo "Teammate $TEAMMATE_ID is now $TEAMMATE_STATUS"
 
 # Send push notification - sanitize for JSON safety
 SAFE_ID=$(echo "$TEAMMATE_ID" | sed 's/["\\\\/]/ /g' | head -c 100)
-curl -s -X POST http://localhost:3000/api/notifications/push \\
+curl -s -X POST http://localhost:3001/api/notifications/push \\
   -H "Content-Type: application/json" \\
   -d "{\\"title\\":\\"Team Update\\",\\"body\\":\\"Teammate $SAFE_ID is now $TEAMMATE_STATUS\\",\\"type\\":\\"info\\",\\"session_id\\":\\"$SID\\"}" > /dev/null 2>&1
 
