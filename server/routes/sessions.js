@@ -239,7 +239,7 @@ router.post('/:id/end', async (req, res) => {
 // Get session messages
 router.get('/:id/messages', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 100;
+    const limit = parseInt(req.query.limit) || 10000;
     const offset = parseInt(req.query.offset) || 0;
 
     const messages = (await query(`
