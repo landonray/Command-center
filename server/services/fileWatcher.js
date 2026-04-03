@@ -382,11 +382,19 @@ async function getGitPipeline(directory) {
         : hasWork ? 'pending' : 'unknown';
     }
 
-    // Feature branch with no work at all → all gray
+    // Feature branch with no local work:
+    // If commits are on remote (merged via PR + pulled), work is complete → all green.
+    // If truly no work anywhere, fresh branch → all gray.
     if (!isMain && !hasWork) {
-      result.committed = 'unknown';
-      result.merged = 'unknown';
-      result.pushed = 'unknown';
+      if (commitsOnRemote) {
+        result.committed = 'done';
+        result.merged = 'done';
+        result.pushed = 'done';
+      } else {
+        result.committed = 'unknown';
+        result.merged = 'unknown';
+        result.pushed = 'unknown';
+      }
     }
 
     pipelineCache.set(directory, { result, timestamp: Date.now() });
