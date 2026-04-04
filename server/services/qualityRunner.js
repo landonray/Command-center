@@ -264,8 +264,8 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[count] requirements incomplete`
  */
 async function saveAndBroadcast(sessionId, rule, result, broadcast) {
   await query(
-    `INSERT INTO quality_results (session_id, rule_id, rule_name, result, severity, details, timestamp) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-    [sessionId, rule.id, rule.name, result.result, rule.severity, result.details]
+    `INSERT INTO quality_results (session_id, rule_id, rule_name, result, severity, details, analysis, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+    [sessionId, rule.id, rule.name, result.result, rule.severity, result.details, result.analysis || null]
   ).catch(e => console.error('[QualityRunner] DB error:', e.message));
 
   console.log(`[QualityRunner] ${rule.id}: ${result.result.toUpperCase()} for session ${sessionId.slice(0, 8)}`);

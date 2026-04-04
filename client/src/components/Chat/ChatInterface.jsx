@@ -81,7 +81,7 @@ export default function ChatInterface({ sessionId }) {
             result: r.result,
             severity: r.severity,
             details: r.details,
-            analysis: null,
+            analysis: r.analysis || null,
             trigger: null,
             timestamp: r.timestamp,
           }));
