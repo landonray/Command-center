@@ -74,7 +74,7 @@ async function initializeDb() {
     `CREATE TABLE IF NOT EXISTS quality_results (
       id SERIAL PRIMARY KEY, session_id TEXT REFERENCES sessions(id),
       rule_id TEXT NOT NULL REFERENCES quality_rules(id), rule_name TEXT NOT NULL,
-      result TEXT NOT NULL, severity TEXT NOT NULL, details TEXT, file_path TEXT,
+      result TEXT NOT NULL, severity TEXT NOT NULL, details TEXT, analysis TEXT, file_path TEXT,
       timestamp TEXT DEFAULT NOW()
     )`,
     `CREATE INDEX IF NOT EXISTS idx_quality_results_session ON quality_results(session_id)`,
@@ -103,6 +103,7 @@ async function initializeDb() {
     `ALTER TABLE quality_rules ADD COLUMN IF NOT EXISTS execution_mode TEXT DEFAULT 'cli'`,
     `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS lines_added INTEGER DEFAULT 0`,
     `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS lines_removed INTEGER DEFAULT 0`,
+    `ALTER TABLE quality_results ADD COLUMN IF NOT EXISTS analysis TEXT`,
   ];
   for (const migration of migrations) {
     try { await sql.query(migration); } catch (e) { console.error('Migration failed:', migration, e.message); }
