@@ -56,26 +56,44 @@ export default function ChatInterface({ sessionId }) {
     }
   }, [sessionId]);
 
-  // Load existing messages from database (with retry for server restarts)
+  // Load existing messages and quality results from database (with retry for server restarts)
   useEffect(() => {
     let cancelled = false;
     async function loadMessages(retries = 3) {
       for (let attempt = 0; attempt < retries; attempt++) {
         try {
-          const result = await api.get(`/api/sessions/${sessionId}/messages`);
+          const [msgResult, qualityResult] = await Promise.all([
+            api.get(`/api/sessions/${sessionId}/messages`),
+            api.get(`/api/quality/results/session/${sessionId}`).catch(() => ({ results: [] })),
+          ]);
           if (cancelled) return;
-          const dbMessages = result.messages.map(m => ({
+          const dbMessages = msgResult.messages.map(m => ({
             role: m.role,
             content: m.content,
             timestamp: m.timestamp,
             toolCalls: m.tool_calls ? JSON.parse(m.tool_calls) : null,
             attachments: m.attachments ? JSON.parse(m.attachments) : null,
           }));
+          const qualityMessages = qualityResult.results.map(r => ({
+            role: 'quality',
+            ruleId: r.rule_id,
+            ruleName: r.rule_name,
+            result: r.result,
+            severity: r.severity,
+            details: r.details,
+            analysis: null,
+            trigger: null,
+            timestamp: r.timestamp,
+          }));
+          // Merge and sort by timestamp
+          const allMessages = [...dbMessages, ...qualityMessages].sort(
+            (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+          );
           // Re-append any optimistic messages not yet in DB
           const pending = optimisticMessagesRef.current.filter(
             opt => !dbMessages.some(db => db.role === 'user' && db.content === opt.content)
           );
-          setMessages([...dbMessages, ...pending]);
+          setMessages([...allMessages, ...pending]);
           setLoading(false);
           return;
         } catch (e) {

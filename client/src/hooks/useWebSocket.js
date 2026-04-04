@@ -171,8 +171,8 @@ export function useWebSocket(sessionId) {
               break;
             }
 
-            case 'quality_result':
-              setMessages(prev => [...prev, {
+            case 'quality_result': {
+              const newQuality = {
                 role: 'quality',
                 ruleId: data.ruleId,
                 ruleName: data.ruleName,
@@ -182,8 +182,16 @@ export function useWebSocket(sessionId) {
                 analysis: data.analysis,
                 trigger: data.trigger,
                 timestamp: data.timestamp
-              }]);
+              };
+              setMessages(prev => {
+                // Deduplicate — may already exist from initial DB load
+                const isDup = prev.some(m =>
+                  m.role === 'quality' && m.ruleId === data.ruleId && m.timestamp === data.timestamp
+                );
+                return isDup ? prev : [...prev, newQuality];
+              });
               break;
+            }
 
             case 'error':
               setStatus('error');
