@@ -57,12 +57,19 @@ function setupWebSocket(server) {
           } else {
             // Session not in memory — check DB for its status
             const { query } = require('./database');
-            query('SELECT status FROM sessions WHERE id = $1', [msg.sessionId]).then(result => {
+            query('SELECT status FROM sessions WHERE id = $1', [msg.sessionId]).then(async (result) => {
               const dbSession = result.rows[0];
+              let status = dbSession ? dbSession.status : 'ended';
+              // If DB says 'working' but there's no active process in memory,
+              // the session is stale — reset to idle so the user isn't stuck
+              if (status === 'working') {
+                status = 'idle';
+                await query("UPDATE sessions SET status = 'idle' WHERE id = $1", [msg.sessionId]);
+              }
               safeSend(ws, {
                 type: 'session_status',
                 sessionId: msg.sessionId,
-                status: dbSession ? dbSession.status : 'ended',
+                status,
                 resumable: true,
                 timestamp: new Date().toISOString()
               });

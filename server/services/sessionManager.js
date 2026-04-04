@@ -421,6 +421,11 @@ class SessionProcess {
   }
 
   handleTmuxProcessExit() {
+    // Cancel the result safety-net timer — normal exit path is firing
+    if (this._resultIdleTimer) {
+      clearTimeout(this._resultIdleTimer);
+      this._resultIdleTimer = null;
+    }
     this.stopOutputTail();
     this.process = null;
     this.pendingPermission = null;
@@ -509,6 +514,11 @@ class SessionProcess {
     });
 
     this.process.on('close', (code) => {
+      // Cancel the result safety-net timer — normal exit path is firing
+      if (this._resultIdleTimer) {
+        clearTimeout(this._resultIdleTimer);
+        this._resultIdleTimer = null;
+      }
       this.process = null;
       this.pendingPermission = null;
 
@@ -751,8 +761,36 @@ class SessionProcess {
         break;
 
       case 'result':
-        // Queue drain handled by close/exit handlers after process terminates.
-        // Draining here caused double-processing because process is still alive.
+        // The 'result' event means Claude finished its turn. For direct processes,
+        // the close handler fires almost immediately. For tmux, the __process_exited__
+        // sentinel should follow. But if it's missed (race condition, file tail stopped),
+        // the session gets permanently stuck in 'working'. Schedule a safety-net
+        // transition to idle that gets cancelled if the normal exit path fires first.
+        if (this._resultIdleTimer) clearTimeout(this._resultIdleTimer);
+        this._resultIdleTimer = setTimeout(() => {
+          this._resultIdleTimer = null;
+          if (this.status === 'working') {
+            console.log(`[Session ${this.id.slice(0, 8)}] Result safety-net: transitioning to idle (exit event was missed)`);
+            // For tmux sessions where the process already exited, clean up
+            if (this.process && this.process.tmux) {
+              this.handleTmuxProcessExit();
+            } else if (!this.process) {
+              // Process already gone but status never transitioned
+              this.status = 'idle';
+              this.updateDbStatus('idle');
+              this.broadcast({
+                type: 'session_status',
+                sessionId: this.id,
+                status: 'idle',
+                timestamp: new Date().toISOString()
+              });
+              if (this.messageQueue.length > 0) {
+                const nextMsg = this.messageQueue.shift();
+                setTimeout(() => this.sendMessage(nextMsg), 100);
+              }
+            }
+          }
+        }, 5000);
         break;
     }
   }
