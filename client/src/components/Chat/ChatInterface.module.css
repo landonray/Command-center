@@ -67,10 +67,6 @@
     max-width: 100%;
   }
 
-  .nameDisplay {
-    display: none;
-  }
-
   .scorecardWrapper {
     padding: 0 8px;
   }
@@ -91,6 +87,12 @@
 
 .nameDisplay:hover {
   background: var(--bg-tertiary);
+}
+
+@media (max-width: 768px) {
+  .nameDisplay {
+    display: none;
+  }
 }
 
 .editIcon {
