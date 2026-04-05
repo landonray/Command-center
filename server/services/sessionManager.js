@@ -134,6 +134,7 @@ class SessionProcess {
     this.streamEventHistory = []; // buffered stream events for replay on reconnect
     this.stderrBuffer = ''; // accumulates stderr for error reporting
     this._qualityStopDispatched = false; // guard against duplicate onSessionStop calls
+    this.qualityReviewIteration = 0; // tracks quality review loop iterations (max 3)
   }
 
   addListener(callback) {
@@ -445,9 +446,14 @@ class SessionProcess {
         this._qualityStopDispatched = true;
         qualityRunner.onSessionStop(this.id, this.broadcast.bind(this)).then(failures => {
           if (failures && failures.length > 0) {
+            if (this.qualityReviewIteration >= 3) {
+              console.log(`[QualityRunner] ${failures.length} rule(s) still failing for session ${this.id.slice(0, 8)} but reached max iterations (3) — stopping review loop`);
+              return;
+            }
+            this.qualityReviewIteration++;
             const message = buildQualityFailureMessage(failures);
-            console.log(`[QualityRunner] ${failures.length} rule(s) failed with send_fail_to_agent for session ${this.id.slice(0, 8)} — sending agent back to work`);
-            setTimeout(() => this.sendMessage(message), 500);
+            console.log(`[QualityRunner] ${failures.length} rule(s) failed with send_fail_to_agent for session ${this.id.slice(0, 8)} — sending agent back to work (iteration ${this.qualityReviewIteration}/3)`);
+            setTimeout(() => this.sendMessage(message, null, { isQualityReview: true }), 500);
           }
         }).catch(e =>
           console.error('[QualityRunner] onSessionStop error:', e.message));
@@ -553,9 +559,14 @@ class SessionProcess {
           this._qualityStopDispatched = true;
           qualityRunner.onSessionStop(this.id, this.broadcast.bind(this)).then(failures => {
             if (failures && failures.length > 0) {
+              if (this.qualityReviewIteration >= 3) {
+                console.log(`[QualityRunner] ${failures.length} rule(s) still failing for session ${this.id.slice(0, 8)} but reached max iterations (3) — stopping review loop`);
+                return;
+              }
+              this.qualityReviewIteration++;
               const message = buildQualityFailureMessage(failures);
-              console.log(`[QualityRunner] ${failures.length} rule(s) failed with send_fail_to_agent for session ${this.id.slice(0, 8)} — sending agent back to work`);
-              setTimeout(() => this.sendMessage(message), 500);
+              console.log(`[QualityRunner] ${failures.length} rule(s) failed with send_fail_to_agent for session ${this.id.slice(0, 8)} — sending agent back to work (iteration ${this.qualityReviewIteration}/3)`);
+              setTimeout(() => this.sendMessage(message, null, { isQualityReview: true }), 500);
             }
           }).catch(e =>
             console.error('[QualityRunner] onSessionStop error:', e.message));
@@ -825,7 +836,12 @@ class SessionProcess {
     }
   }
 
-  async sendMessage(text, attachments = null) {
+  async sendMessage(text, attachments = null, { isQualityReview = false } = {}) {
+    // Reset quality review iteration counter when a user sends a message manually
+    if (!isQualityReview) {
+      this.qualityReviewIteration = 0;
+    }
+
     if (this.process && this.status === 'working') {
       // A process is already running — queue the message but still show it in the UI
       this.messageQueue.push(text);
