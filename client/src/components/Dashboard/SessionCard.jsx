@@ -8,10 +8,12 @@ export default function SessionCard({ session, onClick, onArchive }) {
   const contextLevel = getContextHealthLevel(session.context_window_usage || 0);
   const contextPercent = Math.round((session.context_window_usage || 0) * 100);
 
+  const isActive = session.status === 'working' || session.status === 'reviewing';
+
   const cardClass = [
     'card card-clickable',
     styles.card,
-    session.status === 'working' ? styles.cardWorking : '',
+    isActive ? styles.cardWorking : '',
     session.status === 'waiting' ? styles.cardWaiting : '',
     session.archived ? styles.cardArchived : '',
   ].filter(Boolean).join(' ');
@@ -26,8 +28,8 @@ export default function SessionCard({ session, onClick, onArchive }) {
             {session.model.includes('sonnet') ? 'Sonnet' : session.model}
           </span>
         )}
-        <span className={`badge badge-${session.archived ? 'ended' : session.status}`}>
-          {session.status === 'working' && <Activity size={10} />}
+        <span className={`badge badge-${session.archived ? 'ended' : isActive ? 'working' : session.status}`}>
+          {isActive && <Activity size={10} />}
           {session.archived ? 'archived' : session.status}
         </span>
       </div>

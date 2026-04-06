@@ -58,6 +58,10 @@ export function useWebSocket(sessionId) {
               }
               break;
 
+            case 'quality_checks_done':
+              // No-op — status transition handled by session_status event
+              break;
+
             case 'session_resuming':
               resumingRef.current = true;
               setResuming(true);
@@ -183,6 +187,26 @@ export function useWebSocket(sessionId) {
               break;
             }
 
+            case 'quality_running': {
+              const runningQuality = {
+                role: 'quality',
+                ruleId: data.ruleId,
+                ruleName: data.ruleName,
+                result: 'running',
+                severity: data.severity,
+                trigger: data.trigger,
+                timestamp: data.timestamp
+              };
+              setMessages(prev => {
+                // Don't add if already running or already have a result for this rule
+                const exists = prev.some(m =>
+                  m.role === 'quality' && m.ruleId === data.ruleId && m.timestamp === data.timestamp
+                );
+                return exists ? prev : [...prev, runningQuality];
+              });
+              break;
+            }
+
             case 'quality_result': {
               const newQuality = {
                 role: 'quality',
@@ -196,6 +220,15 @@ export function useWebSocket(sessionId) {
                 timestamp: data.timestamp
               };
               setMessages(prev => {
+                // Replace the 'running' placeholder for this rule, or deduplicate
+                const runningIdx = prev.findIndex(m =>
+                  m.role === 'quality' && m.ruleId === data.ruleId && m.result === 'running'
+                );
+                if (runningIdx !== -1) {
+                  const next = [...prev];
+                  next[runningIdx] = newQuality;
+                  return next;
+                }
                 // Deduplicate — may already exist from initial DB load
                 const isDup = prev.some(m =>
                   m.role === 'quality' && m.ruleId === data.ruleId && m.timestamp === data.timestamp

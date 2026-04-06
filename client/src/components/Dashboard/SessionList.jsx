@@ -140,7 +140,7 @@ export default function SessionList() {
               const cardClass = [
                 styles.card,
                 isActive ? styles.active : '',
-                session.status === 'working' ? styles.cardWorking : '',
+                (session.status === 'working' || session.status === 'reviewing') ? styles.cardWorking : '',
                 session.status === 'waiting' ? styles.cardWaiting : '',
                 session.archived ? styles.cardArchived : '',
               ].filter(Boolean).join(' ');
@@ -154,7 +154,7 @@ export default function SessionList() {
                   <div className={styles.cardHeader}>
                     <span className={styles.statusDot} data-status={session.status} />
                     <span className={styles.cardName}>{session.name}</span>
-                    <span className={`badge badge-${session.archived ? 'ended' : session.status}`}>
+                    <span className={`badge badge-${session.archived ? 'ended' : session.status === 'reviewing' ? 'working' : session.status}`}>
                       {session.archived ? 'archived' : session.status}
                     </span>
                     {(session.status === 'ended' || session.archived) && (

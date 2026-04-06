@@ -290,6 +290,31 @@
   border-left: 3px solid;
 }
 
+.qualityRunning {
+  background: color-mix(in srgb, var(--accent, #6366f1) 8%, transparent);
+  border-left-color: var(--accent, #6366f1);
+}
+
+.qualityRunning .qualityIcon {
+  color: var(--accent, #6366f1);
+}
+
+.qualitySpinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.qualityRunningText {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .qualityPass {
   background: color-mix(in srgb, var(--success, #22c55e) 8%, transparent);
   border-left-color: var(--success, #22c55e);

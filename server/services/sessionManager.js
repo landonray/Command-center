@@ -433,12 +433,13 @@ class SessionProcess {
     this.pendingPermission = null;
 
     if (this.status !== 'error') {
-      this.status = 'idle';
-      this.updateDbStatus('idle');
+      // Stay in 'reviewing' while quality checks run so the card stays green
+      this.status = 'reviewing';
+      this.updateDbStatus('reviewing');
       this.broadcast({
         type: 'session_status',
         sessionId: this.id,
-        status: 'idle',
+        status: 'reviewing',
         timestamp: new Date().toISOString()
       });
       // Run Stop quality checks (--print mode doesn't fire Stop hooks)
@@ -448,15 +449,22 @@ class SessionProcess {
           if (failures && failures.length > 0) {
             if (this.qualityReviewIteration >= 3) {
               console.log(`[QualityRunner] ${failures.length} rule(s) still failing for session ${this.id.slice(0, 8)} but reached max iterations (3) — stopping review loop`);
+              this.transitionToIdle();
               return;
             }
             this.qualityReviewIteration++;
             const message = buildQualityFailureMessage(failures);
             console.log(`[QualityRunner] ${failures.length} rule(s) failed with send_fail_to_agent for session ${this.id.slice(0, 8)} — sending agent back to work (iteration ${this.qualityReviewIteration}/3)`);
             setTimeout(() => this.sendMessage(message, null, { isQualityReview: true }), 500);
+          } else {
+            this.transitionToIdle();
           }
-        }).catch(e =>
-          console.error('[QualityRunner] onSessionStop error:', e.message));
+        }).catch(e => {
+          console.error('[QualityRunner] onSessionStop error:', e.message);
+          this.transitionToIdle();
+        });
+      } else {
+        this.transitionToIdle();
       }
     }
 
@@ -546,12 +554,13 @@ class SessionProcess {
           timestamp: new Date().toISOString()
         });
       } else if (this.status !== 'error') {
-        this.status = 'idle';
-        this.updateDbStatus('idle');
+        // Stay in 'reviewing' while quality checks run so the card stays green
+        this.status = 'reviewing';
+        this.updateDbStatus('reviewing');
         this.broadcast({
           type: 'session_status',
           sessionId: this.id,
-          status: 'idle',
+          status: 'reviewing',
           timestamp: new Date().toISOString()
         });
         // Run Stop quality checks (--print mode doesn't fire Stop hooks)
@@ -561,15 +570,22 @@ class SessionProcess {
             if (failures && failures.length > 0) {
               if (this.qualityReviewIteration >= 3) {
                 console.log(`[QualityRunner] ${failures.length} rule(s) still failing for session ${this.id.slice(0, 8)} but reached max iterations (3) — stopping review loop`);
+                this.transitionToIdle();
                 return;
               }
               this.qualityReviewIteration++;
               const message = buildQualityFailureMessage(failures);
               console.log(`[QualityRunner] ${failures.length} rule(s) failed with send_fail_to_agent for session ${this.id.slice(0, 8)} — sending agent back to work (iteration ${this.qualityReviewIteration}/3)`);
               setTimeout(() => this.sendMessage(message, null, { isQualityReview: true }), 500);
+            } else {
+              this.transitionToIdle();
             }
-          }).catch(e =>
-            console.error('[QualityRunner] onSessionStop error:', e.message));
+          }).catch(e => {
+            console.error('[QualityRunner] onSessionStop error:', e.message);
+            this.transitionToIdle();
+          });
+        } else {
+          this.transitionToIdle();
         }
       }
 
@@ -1148,6 +1164,17 @@ class SessionProcess {
       query('UPDATE sessions SET status = $1, last_activity_at = NOW() WHERE id = $2', [status, this.id])
         .catch(e => console.error('Failed to update session status:', e.message));
     }
+  }
+
+  transitionToIdle() {
+    this.status = 'idle';
+    this.updateDbStatus('idle');
+    this.broadcast({
+      type: 'session_status',
+      sessionId: this.id,
+      status: 'idle',
+      timestamp: new Date().toISOString()
+    });
   }
 
   parseQualityResults(text) {
