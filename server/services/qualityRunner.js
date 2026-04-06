@@ -301,6 +301,23 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[count] requirements incomplete`
 }
 
 /**
+ * Broadcast that a quality check is starting (so UI can show a spinner).
+ */
+function broadcastRunning(sessionId, rule, broadcast) {
+  if (broadcast) {
+    broadcast({
+      type: 'quality_running',
+      sessionId,
+      ruleId: rule.id,
+      ruleName: rule.name,
+      severity: rule.severity,
+      trigger: rule.fires_on,
+      timestamp: new Date().toISOString()
+    });
+  }
+}
+
+/**
  * Save a quality result to DB and broadcast to session listeners.
  */
 async function saveAndBroadcast(sessionId, rule, result, broadcast) {
@@ -349,6 +366,8 @@ async function onToolUse(sessionId, toolName, toolInput, broadcast) {
   for (const rule of postToolRules) {
     if (rule.hook_type === 'command') continue;
 
+    broadcastRunning(sessionId, rule, broadcast);
+
     // PostToolUse checks: get cwd from toolInput if available
     const toolCwd = toolInput?.file_path ? path.dirname(toolInput.file_path) : undefined;
     const result = await runQualityCheck(rule, context, { cwd: toolCwd });
@@ -372,7 +391,12 @@ async function onSessionStop(sessionId, broadcast) {
     return triggers.some(t => t === 'Stop');
   });
 
-  if (stopRules.length === 0) return [];
+  if (stopRules.length === 0) {
+    if (broadcast) {
+      broadcast({ type: 'quality_checks_done', sessionId, count: 0, timestamp: new Date().toISOString() });
+    }
+    return [];
+  }
 
   // Get session working directory
   const { rows: sessionRows } = await query(
@@ -410,6 +434,8 @@ async function onSessionStop(sessionId, broadcast) {
       continue;
     }
 
+    broadcastRunning(sessionId, rule, broadcast);
+
     let result;
 
     // For spec-compliance with a real spec file, use the enhanced check
@@ -440,6 +466,10 @@ async function onSessionStop(sessionId, broadcast) {
         }
       }
     }
+  }
+
+  if (broadcast) {
+    broadcast({ type: 'quality_checks_done', sessionId, timestamp: new Date().toISOString() });
   }
 
   return failuresToSend;

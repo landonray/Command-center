@@ -448,7 +448,7 @@ export default function ChatInterface({ sessionId }) {
             onClick={handleSend}
             disabled={!input.trim() && attachments.length === 0}
           >
-            {status === 'working' || resuming
+            {status === 'working' || status === 'reviewing' || resuming
               ? <Loader size={16} className="animate-spin" />
               : isEnded
                 ? <RotateCcw size={16} />

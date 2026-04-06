@@ -82,10 +82,11 @@ function WorkingIndicator({ streamEvents }) {
 
 function QualityResultItem({ msg, sendMessage }) {
   const [expanded, setExpanded] = useState(false);
+  const isRunning = msg.result === 'running';
   const isFail = msg.result === 'fail';
   const hasAnalysis = msg.analysis && msg.analysis.length > 0;
   const hasDetails = msg.details && msg.details.length > 0;
-  const isExpandable = hasAnalysis || hasDetails;
+  const isExpandable = !isRunning && (hasAnalysis || hasDetails);
 
   const handleSendAsMessage = (e) => {
     e.stopPropagation();
@@ -97,18 +98,21 @@ function QualityResultItem({ msg, sendMessage }) {
     sendMessage(parts.join('\n\n'));
   };
 
+  const stateClass = isRunning ? styles.qualityRunning : isFail ? styles.qualityFail : styles.qualityPass;
+
   return (
     <div
-      className={`${styles.qualityResult} ${isFail ? styles.qualityFail : styles.qualityPass} ${isExpandable ? styles.qualityClickable : ''}`}
+      className={`${styles.qualityResult} ${stateClass} ${isExpandable ? styles.qualityClickable : ''}`}
       onClick={() => isExpandable && setExpanded(!expanded)}
     >
       <div className={styles.qualityIcon}>
-        {isFail ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
+        {isRunning ? <Loader size={14} className={styles.qualitySpinner} /> : isFail ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
       </div>
       <div className={styles.qualityBody}>
         <span className={styles.qualityLabel}>
           {isExpandable && (expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
           {msg.ruleName}
+          {isRunning && <span className={styles.qualityRunningText}>reviewing</span>}
           <span className={`${styles.qualityBadge} ${styles[`severity-${msg.severity}`]}`}>{msg.severity}</span>
         </span>
         {msg.details && <span className={styles.qualityDetails}>{msg.details}</span>}
