@@ -11,11 +11,11 @@ router.get('/', async (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
   const status = req.query.status;
 
-  let sql = 'SELECT * FROM sessions ORDER BY last_activity_at DESC LIMIT $1';
+  let sql = 'SELECT * FROM sessions ORDER BY created_at DESC LIMIT $1';
   let params = [limit];
 
   if (status) {
-    sql = 'SELECT * FROM sessions WHERE status = $1 ORDER BY last_activity_at DESC LIMIT $2';
+    sql = 'SELECT * FROM sessions WHERE status = $1 ORDER BY created_at DESC LIMIT $2';
     params = [status, limit];
   }
 
