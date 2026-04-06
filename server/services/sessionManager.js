@@ -323,11 +323,23 @@ class SessionProcess {
       // Kill existing tmux session if it exists (stale)
       try { execSync(`tmux kill-session -t ${tmuxName} 2>/dev/null`, { stdio: 'ignore' }); } catch (e) {}
 
-      // Create tmux session with a clean environment — strip DATABASE_URL and other
-      // server-specific vars so child projects don't inherit Command Center's database.
-      const cleanEnv = { ...process.env };
-      delete cleanEnv.DATABASE_URL;
-      delete cleanEnv.LLM_GATEWAY_KEY;
+      // Create tmux session with a clean environment — only pass through safe,
+      // system-level vars. This prevents Command Center's secrets (DATABASE_URL,
+      // API keys, etc.) from leaking into child projects via process inheritance.
+      const ALLOWED_ENV_KEYS = [
+        'PATH', 'HOME', 'USER', 'SHELL', 'TERM', 'TMPDIR', 'LANG', 'LC_ALL',
+        'LC_CTYPE', 'LOGNAME', 'DISPLAY', 'SSH_AUTH_SOCK', 'XDG_RUNTIME_DIR',
+        'EDITOR', 'VISUAL', 'COLORTERM', 'TERM_PROGRAM', 'TERM_PROGRAM_VERSION',
+        // Node/npm needs
+        'NODE_ENV', 'NVM_DIR', 'NVM_BIN', 'NVM_INC',
+        // macOS specifics
+        'HOMEBREW_PREFIX', 'HOMEBREW_CELLAR', 'HOMEBREW_REPOSITORY',
+        '__CF_USER_TEXT_ENCODING', 'Apple_PubSub_Socket_Render',
+      ];
+      const cleanEnv = {};
+      for (const key of ALLOWED_ENV_KEYS) {
+        if (process.env[key] !== undefined) cleanEnv[key] = process.env[key];
+      }
 
       execSync(`tmux new-session -d -s ${tmuxName} "bash '${scriptPath}'"`, {
         stdio: 'ignore',
