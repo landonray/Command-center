@@ -101,8 +101,10 @@ function buildHookEntries(rule) {
   const config = rule.config ? JSON.parse(rule.config) : {};
 
   for (const trigger of firesOn) {
+    // Skip composite triggers handled server-side (not via Claude Code hooks)
+    if (trigger === 'PRCreated') continue;
+
     const [event, toolFilter] = trigger.split(':');
-    // All 21 lifecycle events are supported
 
     const hook = {
       _missionControl: true,

@@ -87,7 +87,8 @@ router.put('/rules/:id/trigger', async (req, res) => {
   const { fires_on } = req.body;
   const validTriggers = [
     'Stop', 'PostToolUse', 'PreToolUse', 'PostToolUseFailure',
-    'SessionStart', 'SessionEnd', 'SubagentStop', 'Notification'
+    'SessionStart', 'SessionEnd', 'SubagentStop', 'Notification',
+    'PRCreated'
   ];
   if (!fires_on || !validTriggers.includes(fires_on)) {
     return res.status(400).json({ error: `fires_on must be one of: ${validTriggers.join(', ')}` });
