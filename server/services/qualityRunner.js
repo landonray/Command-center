@@ -350,6 +350,8 @@ async function saveAndBroadcast(sessionId, rule, result, broadcast) {
  */
 async function onToolUse(sessionId, toolName, toolInput, broadcast) {
   const rules = await getEnabledRules();
+
+  // Match standard PostToolUse rules
   const postToolRules = rules.filter(r => {
     const triggers = r.fires_on.split(',').map(s => s.trim());
     return triggers.some(t => {
@@ -358,12 +360,21 @@ async function onToolUse(sessionId, toolName, toolInput, broadcast) {
     });
   });
 
-  if (postToolRules.length === 0) return;
+  // Match PRCreated rules: fires when Bash runs a command containing "gh pr create"
+  const inputStr = typeof toolInput === 'string' ? toolInput : JSON.stringify(toolInput || '');
+  const isPRCreate = toolName === 'Bash' && inputStr.includes('gh pr create');
+  const prCreatedRules = isPRCreate ? rules.filter(r => {
+    const triggers = r.fires_on.split(',').map(s => s.trim());
+    return triggers.includes('PRCreated');
+  }) : [];
+
+  const matchingRules = [...postToolRules, ...prCreatedRules];
+  if (matchingRules.length === 0) return;
 
   // Build context from tool use
   const context = `Tool used: ${toolName}\nInput: ${JSON.stringify(toolInput).slice(0, 1000)}`;
 
-  for (const rule of postToolRules) {
+  for (const rule of matchingRules) {
     if (rule.hook_type === 'command') continue;
 
     broadcastRunning(sessionId, rule, broadcast);
