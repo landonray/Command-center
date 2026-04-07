@@ -267,21 +267,48 @@ export function useWebSocket(sessionId) {
             if (!cancelled) {
               console.log('[WS] Reconnecting...');
               connect();
-              // Reload messages from DB since we may have missed events while disconnected
-              api.get(`/api/sessions/${sessionId}/messages`).then(result => {
+              // Reload messages, quality results, and running checks since we may have missed events
+              Promise.all([
+                api.get(`/api/sessions/${sessionId}/messages`),
+                api.get(`/api/quality/results/session/${sessionId}`).catch(() => ({ results: [] })),
+                api.get(`/api/quality/results/running/${sessionId}`).catch(() => ({ running: [] })),
+              ]).then(([msgResult, qualityResult, runningResult]) => {
                 if (!cancelled) {
-                  const dbMessages = result.messages.map(m => ({
+                  const dbMessages = msgResult.messages.map(m => ({
                     role: m.role,
                     content: m.content,
                     timestamp: m.timestamp,
                     toolCalls: m.tool_calls ? JSON.parse(m.tool_calls) : null,
                     attachments: m.attachments ? JSON.parse(m.attachments) : null,
                   }));
+                  const qualityMessages = qualityResult.results.map(r => ({
+                    role: 'quality',
+                    ruleId: r.rule_id,
+                    ruleName: r.rule_name,
+                    result: r.result,
+                    severity: r.severity,
+                    details: r.details,
+                    analysis: r.analysis || null,
+                    trigger: null,
+                    timestamp: r.timestamp,
+                  }));
+                  const runningMessages = (runningResult.running || []).map(r => ({
+                    role: 'quality',
+                    ruleId: r.ruleId,
+                    ruleName: r.ruleName,
+                    result: 'running',
+                    severity: r.severity,
+                    trigger: r.trigger,
+                    timestamp: r.timestamp,
+                  }));
+                  const allMessages = [...dbMessages, ...qualityMessages, ...runningMessages].sort(
+                    (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+                  );
                   // Re-append any optimistic messages not yet in DB
                   const pending = optimisticMessagesRef.current.filter(
                     opt => !dbMessages.some(db => db.role === 'user' && db.content === opt.content)
                   );
-                  setMessages([...dbMessages, ...pending]);
+                  setMessages([...allMessages, ...pending]);
                 }
               }).catch(e => console.error('[WS] Failed to reload messages on reconnect:', e.message));
             }

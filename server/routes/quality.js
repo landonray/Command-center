@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../database');
 const { generateHooksConfig, removeHooksConfig, getHooksStatus } = require('../services/hooksGenerator');
-const { invalidateRulesCache } = require('../services/qualityRunner');
+const { invalidateRulesCache, getRunningChecks } = require('../services/qualityRunner');
 
 // ==========================================
 // RULES MANAGEMENT
@@ -227,6 +227,11 @@ router.post('/results', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Get currently-running quality checks for a session
+router.get('/results/running/:sessionId', (req, res) => {
+  res.json({ running: getRunningChecks(req.params.sessionId) });
 });
 
 // Get quality results for a session
