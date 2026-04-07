@@ -19,6 +19,10 @@ let rulesCache = null;
 let rulesCacheTime = 0;
 const CACHE_TTL = 30000; // 30s
 
+// Track currently-running quality checks per session so the UI can restore spinners on reload
+// Map<sessionId, Map<ruleId, { ruleId, ruleName, severity, trigger, timestamp }>>
+const runningChecks = new Map();
+
 async function getEnabledRules() {
   const now = Date.now();
   if (rulesCache && now - rulesCacheTime < CACHE_TTL) return rulesCache;
@@ -304,16 +308,20 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[count] requirements incomplete`
  * Broadcast that a quality check is starting (so UI can show a spinner).
  */
 function broadcastRunning(sessionId, rule, broadcast) {
+  const entry = {
+    ruleId: rule.id,
+    ruleName: rule.name,
+    severity: rule.severity,
+    trigger: rule.fires_on,
+    timestamp: new Date().toISOString()
+  };
+
+  // Track in memory so clients can recover running state on reload
+  if (!runningChecks.has(sessionId)) runningChecks.set(sessionId, new Map());
+  runningChecks.get(sessionId).set(rule.id, entry);
+
   if (broadcast) {
-    broadcast({
-      type: 'quality_running',
-      sessionId,
-      ruleId: rule.id,
-      ruleName: rule.name,
-      severity: rule.severity,
-      trigger: rule.fires_on,
-      timestamp: new Date().toISOString()
-    });
+    broadcast({ type: 'quality_running', sessionId, ...entry });
   }
 }
 
@@ -321,6 +329,13 @@ function broadcastRunning(sessionId, rule, broadcast) {
  * Save a quality result to DB and broadcast to session listeners.
  */
 async function saveAndBroadcast(sessionId, rule, result, broadcast) {
+  // Remove from running tracker — this check is done
+  const sessionRunning = runningChecks.get(sessionId);
+  if (sessionRunning) {
+    sessionRunning.delete(rule.id);
+    if (sessionRunning.size === 0) runningChecks.delete(sessionId);
+  }
+
   await query(
     `INSERT INTO quality_results (session_id, rule_id, rule_name, result, severity, details, analysis, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
     [sessionId, rule.id, rule.name, result.result, rule.severity, result.details, result.analysis || null]
@@ -373,6 +388,13 @@ async function onToolUse(sessionId, toolName, toolInput, broadcast) {
     const result = await runQualityCheck(rule, context, { cwd: toolCwd });
     if (result) {
       await saveAndBroadcast(sessionId, rule, result, broadcast);
+    } else {
+      // Error case — clean up running tracker so it doesn't stick forever
+      const sessionRunning = runningChecks.get(sessionId);
+      if (sessionRunning) {
+        sessionRunning.delete(rule.id);
+        if (sessionRunning.size === 0) runningChecks.delete(sessionId);
+      }
     }
   }
 }
@@ -447,24 +469,32 @@ async function onSessionStop(sessionId, broadcast) {
       result = await runQualityCheck(rule, context, { cwd });
     }
 
-    if (result) {
-      await saveAndBroadcast(sessionId, rule, result, broadcast);
+    if (!result) {
+      // Error case — clean up running tracker
+      const sessionRunning = runningChecks.get(sessionId);
+      if (sessionRunning) {
+        sessionRunning.delete(rule.id);
+        if (sessionRunning.size === 0) runningChecks.delete(sessionId);
+      }
+      continue;
+    }
 
-      // Collect failures for rules with send_fail_to_agent enabled
-      if (result.result === 'fail' && rule.send_fail_to_agent) {
-        // If requires_spec is set, only send when a spec file is present or was attached to this session
-        if (rule.send_fail_requires_spec && !spec.found && !hasSpecFlag) {
-          console.log(`[QualityRunner] Rule "${rule.name}" failed but no spec found — skipping send to agent`);
-        } else {
-          console.log(`[QualityRunner] Rule "${rule.name}" failed with send_fail_to_agent — will message agent`);
-          failuresToSend.push({
-            ruleId: rule.id,
-            ruleName: rule.name,
-            analysis: result.analysis,
-            details: result.details,
-            specPath: spec.found ? spec.path : null,
-          });
-        }
+    await saveAndBroadcast(sessionId, rule, result, broadcast);
+
+    // Collect failures for rules with send_fail_to_agent enabled
+    if (result.result === 'fail' && rule.send_fail_to_agent) {
+      // If requires_spec is set, only send when a spec file is present or was attached to this session
+      if (rule.send_fail_requires_spec && !spec.found && !hasSpecFlag) {
+        console.log(`[QualityRunner] Rule "${rule.name}" failed but no spec found — skipping send to agent`);
+      } else {
+        console.log(`[QualityRunner] Rule "${rule.name}" failed with send_fail_to_agent — will message agent`);
+        failuresToSend.push({
+          ruleId: rule.id,
+          ruleName: rule.name,
+          analysis: result.analysis,
+          details: result.details,
+          specPath: spec.found ? spec.path : null,
+        });
       }
     }
   }
@@ -476,4 +506,14 @@ async function onSessionStop(sessionId, broadcast) {
   return failuresToSend;
 }
 
-module.exports = { onToolUse, onSessionStop, invalidateRulesCache };
+/**
+ * Get currently-running quality checks for a session.
+ * Returns an array of { ruleId, ruleName, severity, trigger, timestamp }.
+ */
+function getRunningChecks(sessionId) {
+  const sessionRunning = runningChecks.get(sessionId);
+  if (!sessionRunning) return [];
+  return Array.from(sessionRunning.values());
+}
+
+module.exports = { onToolUse, onSessionStop, invalidateRulesCache, getRunningChecks };

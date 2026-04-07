@@ -62,9 +62,10 @@ export default function ChatInterface({ sessionId }) {
     async function loadMessages(retries = 3) {
       for (let attempt = 0; attempt < retries; attempt++) {
         try {
-          const [msgResult, qualityResult] = await Promise.all([
+          const [msgResult, qualityResult, runningResult] = await Promise.all([
             api.get(`/api/sessions/${sessionId}/messages`),
             api.get(`/api/quality/results/session/${sessionId}`).catch(() => ({ results: [] })),
+            api.get(`/api/quality/results/running/${sessionId}`).catch(() => ({ running: [] })),
           ]);
           if (cancelled) return;
           const dbMessages = msgResult.messages.map(m => ({
@@ -85,8 +86,18 @@ export default function ChatInterface({ sessionId }) {
             trigger: null,
             timestamp: r.timestamp,
           }));
+          // Include any currently-running checks so spinners survive page reload
+          const runningMessages = (runningResult.running || []).map(r => ({
+            role: 'quality',
+            ruleId: r.ruleId,
+            ruleName: r.ruleName,
+            result: 'running',
+            severity: r.severity,
+            trigger: r.trigger,
+            timestamp: r.timestamp,
+          }));
           // Merge and sort by timestamp
-          const allMessages = [...dbMessages, ...qualityMessages].sort(
+          const allMessages = [...dbMessages, ...qualityMessages, ...runningMessages].sort(
             (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
           );
           // Re-append any optimistic messages not yet in DB
