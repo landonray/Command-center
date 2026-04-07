@@ -389,25 +389,33 @@ async function onToolUse(sessionId, toolName, toolInput, broadcast) {
   // Build context from tool use
   const context = `Tool used: ${toolName}\nInput: ${JSON.stringify(toolInput).slice(0, 1000)}`;
 
-  for (const rule of matchingRules) {
-    if (rule.hook_type === 'command') continue;
+  // Run all matching rules in parallel, skipping any already running for this session
+  const toolCwd = toolInput?.file_path ? path.dirname(toolInput.file_path) : undefined;
+
+  await Promise.all(matchingRules.map(async (rule) => {
+    if (rule.hook_type === 'command') return;
+
+    // Skip if this rule is already running for this session (prevents duplicate triggers)
+    const sessionRunning = runningChecks.get(sessionId);
+    if (sessionRunning && sessionRunning.has(rule.id)) {
+      console.log(`[QualityRunner] Rule "${rule.name}" already running for session ${sessionId.slice(0, 8)} — skipping duplicate`);
+      return;
+    }
 
     broadcastRunning(sessionId, rule, broadcast);
 
-    // PostToolUse checks: get cwd from toolInput if available
-    const toolCwd = toolInput?.file_path ? path.dirname(toolInput.file_path) : undefined;
     const result = await runQualityCheck(rule, context, { cwd: toolCwd });
     if (result) {
       await saveAndBroadcast(sessionId, rule, result, broadcast);
     } else {
       // Error case — clean up running tracker so it doesn't stick forever
-      const sessionRunning = runningChecks.get(sessionId);
-      if (sessionRunning) {
-        sessionRunning.delete(rule.id);
-        if (sessionRunning.size === 0) runningChecks.delete(sessionId);
+      const sr = runningChecks.get(sessionId);
+      if (sr) {
+        sr.delete(rule.id);
+        if (sr.size === 0) runningChecks.delete(sessionId);
       }
     }
-  }
+  }));
 }
 
 /**
@@ -457,15 +465,16 @@ async function onSessionStop(sessionId, broadcast) {
     .map(m => `${m.role}: ${m.content?.slice(0, 1000) || ''}`)
     .join('\n\n') + gitContext;
 
+  // Run all stop rules in parallel, collecting failures for agent feedback
   const failuresToSend = [];
 
-  for (const rule of stopRules) {
-    if (rule.hook_type === 'command') continue;
+  await Promise.all(stopRules.map(async (rule) => {
+    if (rule.hook_type === 'command') return;
 
     // If rule requires a spec document to run, skip it when no spec is found AND no spec was attached to this session
     if (rule.send_fail_requires_spec && !spec.found && !hasSpecFlag) {
       console.log(`[QualityRunner] Rule "${rule.name}" requires spec document but none found — skipping`);
-      continue;
+      return;
     }
 
     broadcastRunning(sessionId, rule, broadcast);
@@ -482,12 +491,12 @@ async function onSessionStop(sessionId, broadcast) {
 
     if (!result) {
       // Error case — clean up running tracker
-      const sessionRunning = runningChecks.get(sessionId);
-      if (sessionRunning) {
-        sessionRunning.delete(rule.id);
-        if (sessionRunning.size === 0) runningChecks.delete(sessionId);
+      const sr = runningChecks.get(sessionId);
+      if (sr) {
+        sr.delete(rule.id);
+        if (sr.size === 0) runningChecks.delete(sessionId);
       }
-      continue;
+      return;
     }
 
     await saveAndBroadcast(sessionId, rule, result, broadcast);
@@ -508,7 +517,7 @@ async function onSessionStop(sessionId, broadcast) {
         });
       }
     }
-  }
+  }));
 
   if (broadcast) {
     broadcast({ type: 'quality_checks_done', sessionId, timestamp: new Date().toISOString() });
