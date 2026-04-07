@@ -100,15 +100,39 @@ function buildHookEntries(rule) {
 
   const config = rule.config ? JSON.parse(rule.config) : {};
 
+  // Map composite trigger names to their underlying event + filters
+  const COMPOSITE_TRIGGERS = {
+    PRCreated: {
+      event: 'PostToolUse',
+      matcher: 'Bash',
+      if: '{{ tool_name == "Bash" and "gh pr create" in input }}'
+    }
+  };
+
   for (const trigger of firesOn) {
-    const [event, toolFilter] = trigger.split(':');
-    // All 21 lifecycle events are supported
+    let event, toolFilter, extraFields;
+
+    // Check for composite triggers first (e.g. PRCreated)
+    if (COMPOSITE_TRIGGERS[trigger]) {
+      const composite = COMPOSITE_TRIGGERS[trigger];
+      event = composite.event;
+      extraFields = {};
+      if (composite.matcher) extraFields.matcher = composite.matcher;
+      if (composite.if) extraFields.if = composite.if;
+    } else {
+      [event, toolFilter] = trigger.split(':');
+    }
 
     const hook = {
       _missionControl: true,
       _ruleId: rule.id,
       _ruleName: rule.name
     };
+
+    // Apply composite trigger fields
+    if (extraFields) {
+      Object.assign(hook, extraFields);
+    }
 
     // Add tool matcher for Pre/PostToolUse
     if (toolFilter && event !== 'Stop') {
