@@ -390,7 +390,17 @@ async function onToolUse(sessionId, toolName, toolInput, broadcast) {
   const context = `Tool used: ${toolName}\nInput: ${JSON.stringify(toolInput).slice(0, 1000)}`;
 
   // Run all matching rules in parallel, skipping any already running for this session
-  const toolCwd = toolInput?.file_path ? path.dirname(toolInput.file_path) : undefined;
+  let toolCwd = toolInput?.file_path ? path.dirname(toolInput.file_path) : undefined;
+
+  // For Bash tools (e.g. git push, gh pr create), file_path is absent.
+  // Fall back to the session's working directory from the database.
+  if (!toolCwd) {
+    const { rows: sessionRows } = await query(
+      'SELECT working_directory FROM sessions WHERE id = $1',
+      [sessionId]
+    );
+    toolCwd = sessionRows[0]?.working_directory || undefined;
+  }
 
   await Promise.all(matchingRules.map(async (rule) => {
     if (rule.hook_type === 'command') return;
