@@ -1432,8 +1432,23 @@ async function resumeSession(sessionId, newMessage, { listener } = {}) {
 
     const preamble = await buildContextPreamble(sessionId);
 
+    // If the working directory no longer exists (e.g. worktree was cleaned up),
+    // fall back to the parent project directory
+    let workingDir = sessionRow.working_directory;
+    if (workingDir && !fs.existsSync(resolvePath(workingDir))) {
+      const worktreeMatch = workingDir.match(/^(.+?)\/\.claude\/worktrees\//);
+      if (worktreeMatch) {
+        const parentDir = worktreeMatch[1];
+        if (fs.existsSync(resolvePath(parentDir))) {
+          console.log(`[Session ${sessionId.slice(0, 8)}] Worktree directory gone, falling back to project root: ${parentDir}`);
+          workingDir = parentDir;
+          await query('UPDATE sessions SET working_directory = $1 WHERE id = $2', [parentDir, sessionId]);
+        }
+      }
+    }
+
     const session = new SessionProcess(sessionId, {
-      workingDirectory: sessionRow.working_directory,
+      workingDirectory: workingDir,
       permissionMode: sessionRow.permission_mode || 'auto',
       model: sessionRow.model || DEFAULT_MODEL,
       mcpConnections: [],
