@@ -189,13 +189,10 @@ function getAllowedTools(rule) {
  * @param {string} context - Conversation + git context
  * @param {object} [options] - Additional options
  * @param {string} [options.cwd] - Working directory for agent-type checks
- * @param {AbortSignal} [options.signal] - AbortSignal to cancel the check
  * Returns { result: 'pass'|'fail', details: string|null, analysis: string|null }
  */
 async function runQualityCheck(rule, context, options = {}) {
   try {
-    if (options.signal?.aborted) return null;
-
     const isAgent = rule.hook_type === 'agent';
     const tools = isAgent ? getAllowedTools(rule) : [];
 
@@ -221,8 +218,7 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[brief reason]`;
       fullText = await cliRun(`${systemPrompt}\n\n${prompt}`, {
         allowedTools: tools.length > 0 ? tools : undefined,
         cwd: options.cwd || undefined,
-        timeout: isAgent ? 180000 : 120000,
-        signal: options.signal,
+        timeout: isAgent ? 180000 : 120000, // agents get more time since they use tools
       }) || '';
     } else {
       fullText = await chatCompletion({
@@ -230,7 +226,6 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[brief reason]`;
         max_tokens: isAgent ? 1000 : 500,
         system: systemPrompt,
         messages: [{ role: 'user', content: prompt }],
-        signal: options.signal,
       }) || '';
     }
 
@@ -242,7 +237,6 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[brief reason]`;
     }
     return { result: 'pass', details: 'Quality check completed (no explicit marker)', analysis };
   } catch (e) {
-    if (e.message === 'Aborted' || e.name === 'AbortError') return null;
     console.error(`[QualityRunner] Error running check ${rule.id}:`, e.message);
     return null;
   }
@@ -255,8 +249,6 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[brief reason]`;
  */
 async function runSpecComplianceCheck(rule, specContent, specPath, conversationContext, options = {}) {
   try {
-    if (options.signal?.aborted) return null;
-
     const prompt = `You are a strict spec compliance reviewer. A spec document is attached below.
 
 ## Spec Document (from ${specPath})
@@ -290,7 +282,6 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[count] requirements incomplete`
       fullText = await cliRun(`${specSystemPrompt}\n\n${prompt}`, {
         allowedTools: tools.length > 0 ? tools : undefined,
         cwd: options.cwd || undefined,
-        signal: options.signal,
       }) || '';
     } else {
       fullText = await chatCompletion({
@@ -298,7 +289,6 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[count] requirements incomplete`
         max_tokens: 1500,
         system: specSystemPrompt,
         messages: [{ role: 'user', content: prompt }],
-        signal: options.signal,
       }) || '';
     }
     const analysis = fullText.replace(/QUALITY_RESULT:\S+:\w+:(?:PASS|FAIL)(?::.*)?/g, '').trim();
@@ -309,7 +299,6 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[count] requirements incomplete`
     }
     return { result: 'pass', details: 'Spec check completed (no explicit marker)', analysis };
   } catch (e) {
-    if (e.message === 'Aborted' || e.name === 'AbortError') return null;
     console.error(`[QualityRunner] Error running spec compliance check:`, e.message);
     return null;
   }
@@ -318,14 +307,13 @@ QUALITY_RESULT:${rule.id}:${rule.severity}:FAIL:[count] requirements incomplete`
 /**
  * Broadcast that a quality check is starting (so UI can show a spinner).
  */
-function broadcastRunning(sessionId, rule, broadcast, abortController) {
+function broadcastRunning(sessionId, rule, broadcast) {
   const entry = {
     ruleId: rule.id,
     ruleName: rule.name,
     severity: rule.severity,
     trigger: rule.fires_on,
-    timestamp: new Date().toISOString(),
-    abortController: abortController || null
+    timestamp: new Date().toISOString()
   };
 
   // Track in memory so clients can recover running state on reload
@@ -333,7 +321,7 @@ function broadcastRunning(sessionId, rule, broadcast, abortController) {
   runningChecks.get(sessionId).set(rule.id, entry);
 
   if (broadcast) {
-    broadcast({ type: 'quality_running', sessionId, ...entry, abortController: undefined });
+    broadcast({ type: 'quality_running', sessionId, ...entry });
   }
 }
 
@@ -426,10 +414,9 @@ async function onToolUse(sessionId, toolName, toolInput, broadcast) {
       return;
     }
 
-    const abortController = new AbortController();
-    broadcastRunning(sessionId, rule, broadcast, abortController);
+    broadcastRunning(sessionId, rule, broadcast);
 
-    const result = await runQualityCheck(rule, context, { cwd: toolCwd, signal: abortController.signal });
+    const result = await runQualityCheck(rule, context, { cwd: toolCwd });
     if (result) {
       await saveAndBroadcast(sessionId, rule, result, broadcast);
 
@@ -444,7 +431,7 @@ async function onToolUse(sessionId, toolName, toolInput, broadcast) {
         });
       }
     } else {
-      // Error or cancelled — clean up running tracker so it doesn't stick forever
+      // Error case — clean up running tracker so it doesn't stick forever
       const sr = runningChecks.get(sessionId);
       if (sr) {
         sr.delete(rule.id);
@@ -515,21 +502,20 @@ async function onSessionStop(sessionId, broadcast) {
       return;
     }
 
-    const abortController = new AbortController();
-    broadcastRunning(sessionId, rule, broadcast, abortController);
+    broadcastRunning(sessionId, rule, broadcast);
 
     let result;
 
     // For spec-compliance with a real spec file, use the enhanced check
     if (rule.id === 'spec-compliance' && spec.found) {
       console.log(`[QualityRunner] Spec file found at ${spec.path} — running enforcement-mode check`);
-      result = await runSpecComplianceCheck(rule, spec.content, spec.path, context, { cwd, signal: abortController.signal });
+      result = await runSpecComplianceCheck(rule, spec.content, spec.path, context, { cwd });
     } else {
-      result = await runQualityCheck(rule, context, { cwd, signal: abortController.signal });
+      result = await runQualityCheck(rule, context, { cwd });
     }
 
     if (!result) {
-      // Error or cancelled — clean up running tracker
+      // Error case — clean up running tracker
       const sr = runningChecks.get(sessionId);
       if (sr) {
         sr.delete(rule.id);
@@ -572,45 +558,7 @@ async function onSessionStop(sessionId, broadcast) {
 function getRunningChecks(sessionId) {
   const sessionRunning = runningChecks.get(sessionId);
   if (!sessionRunning) return [];
-  return Array.from(sessionRunning.values()).map(({ abortController, ...rest }) => rest);
+  return Array.from(sessionRunning.values());
 }
 
-/**
- * Cancel a running quality check for a session.
- * Returns true if the check was found and cancelled, false otherwise.
- */
-function cancelCheck(sessionId, ruleId, broadcast) {
-  const sessionRunning = runningChecks.get(sessionId);
-  if (!sessionRunning) return false;
-
-  const entry = sessionRunning.get(ruleId);
-  if (!entry || !entry.abortController) return false;
-
-  // Abort the subprocess/API call
-  entry.abortController.abort();
-
-  // Clean up running tracker
-  sessionRunning.delete(ruleId);
-  if (sessionRunning.size === 0) runningChecks.delete(sessionId);
-
-  // Broadcast cancelled result to UI
-  if (broadcast) {
-    broadcast({
-      type: 'quality_result',
-      sessionId,
-      ruleId,
-      ruleName: entry.ruleName,
-      result: 'cancelled',
-      severity: entry.severity,
-      details: null,
-      analysis: null,
-      trigger: entry.trigger,
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  console.log(`[QualityRunner] Cancelled check "${ruleId}" for session ${sessionId.slice(0, 8)}`);
-  return true;
-}
-
-module.exports = { onToolUse, onSessionStop, invalidateRulesCache, getRunningChecks, cancelCheck };
+module.exports = { onToolUse, onSessionStop, invalidateRulesCache, getRunningChecks };
