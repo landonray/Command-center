@@ -412,7 +412,9 @@ export function useWebSocket(sessionId) {
   }, [sessionId]);
 
   const deleteQueuedMessage = useCallback((content) => {
-    return api.post(`/api/sessions/${sessionId}/delete-queued-message`, { content }).catch(() => {});
+    return api.post(`/api/sessions/${sessionId}/delete-queued-message`, { content }).catch(() => {
+      setSendError('Message already sent — could not delete.');
+    });
   }, [sessionId]);
 
   return {

@@ -1049,14 +1049,14 @@ class SessionProcess {
    * Returns true if the message was found and removed, false otherwise.
    */
   deleteQueuedMessage(content) {
-    const idx = this.messageQueue.indexOf(content);
+    const idx = this.messageQueue.lastIndexOf(content);
     if (idx === -1) return false;
 
     this.messageQueue.splice(idx, 1);
 
-    // Delete from DB so it doesn't reappear on reload
+    // Delete only the most recent matching message from DB (not all with same content)
     query(
-      'DELETE FROM messages WHERE session_id = $1 AND role = $2 AND content = $3',
+      'DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE session_id = $1 AND role = $2 AND content = $3 ORDER BY timestamp DESC LIMIT 1)',
       [this.id, 'user', content]
     ).catch(e => console.error('[Session] Error deleting queued message from DB:', e.message));
 
