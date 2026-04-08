@@ -140,6 +140,12 @@ export function useWebSocket(sessionId) {
               setMessages(prev => {
                 for (let i = prev.length - 1; i >= 0 && i >= prev.length - 10; i--) {
                   if (prev[i].role === 'user' && prev[i].content === data.content) {
+                    // If server says it's queued, update the existing message
+                    if (data.queued && !prev[i].queued) {
+                      const next = [...prev];
+                      next[i] = { ...next[i], queued: true };
+                      return next;
+                    }
                     return prev;
                   }
                 }
@@ -147,8 +153,23 @@ export function useWebSocket(sessionId) {
                   role: 'user',
                   content: data.content,
                   timestamp: data.timestamp,
-                  attachments: data.attachments || null
+                  attachments: data.attachments || null,
+                  queued: !!data.queued
                 }];
+              });
+              break;
+
+            case 'message_dequeued':
+              // Message has been picked up from the queue — remove queued flag
+              setMessages(prev => {
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  if (prev[i].role === 'user' && prev[i].queued && prev[i].content === data.content) {
+                    const next = [...prev];
+                    next[i] = { ...next[i], queued: false };
+                    return next;
+                  }
+                }
+                return prev;
               });
               break;
 

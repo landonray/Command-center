@@ -198,25 +198,6 @@ export default function MessageList({ messages, loading, streamEvents, status, s
     );
   }
 
-  // Determine which user messages are "queued" (waiting to be processed)
-  // When the agent is working, the first trailing user message is the one being processed.
-  // Only subsequent user messages are actually still in the queue.
-  let queuedStartIdx = messages.length;
-  if (status === 'working') {
-    let firstTrailingUserIdx = -1;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'user') {
-        firstTrailingUserIdx = i;
-      } else {
-        break;
-      }
-    }
-    // Skip the first one (being processed), mark the rest as queued
-    if (firstTrailingUserIdx !== -1 && firstTrailingUserIdx < messages.length - 1) {
-      queuedStartIdx = firstTrailingUserIdx + 1;
-    }
-  }
-
   return (
     <div className={styles.container} ref={containerRef} onScroll={handleScroll}>
       {messages.length === 0 && (
@@ -231,12 +212,10 @@ export default function MessageList({ messages, loading, streamEvents, status, s
           return <QualityResultItem key={i} msg={msg} sendMessage={sendMessage} onCancel={onCancelCheck} />;
         }
 
-        const isQueued = msg.role === 'user' && i >= queuedStartIdx;
-
         return (
           <div
             key={i}
-            className={`${styles.message} ${msg.role === 'user' ? styles.userMessage : styles.assistantMessage} ${isQueued ? styles.queuedMessage : ''}`}
+            className={`${styles.message} ${msg.role === 'user' ? styles.userMessage : styles.assistantMessage} ${msg.queued ? styles.queuedMessage : ''}`}
           >
             <div className={styles.avatar}>
               {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
@@ -244,7 +223,7 @@ export default function MessageList({ messages, loading, streamEvents, status, s
             <div className={styles.content}>
               <div className={styles.meta}>
                 <span className={styles.role}>{msg.role === 'user' ? 'You' : 'Claude'}</span>
-                {isQueued && (
+                {msg.queued && (
                   <span className={styles.queuedBadge}>queued</span>
                 )}
                 {msg.timestamp && (
@@ -265,7 +244,7 @@ export default function MessageList({ messages, loading, streamEvents, status, s
                 <div className={styles.resultBadge}>Final Result</div>
               )}
             </div>
-            {isQueued && onDeleteMessage && (
+            {msg.queued && onDeleteMessage && (
               <button
                 className={styles.deleteQueuedBtn}
                 onClick={() => onDeleteMessage(msg.content)}

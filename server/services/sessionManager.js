@@ -497,6 +497,7 @@ class SessionProcess {
     // Process queued messages
     if (this.messageQueue.length > 0) {
       const nextMsg = this.messageQueue.shift();
+      this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
       setTimeout(() => this.sendMessage(nextMsg), 100);
     }
   }
@@ -618,6 +619,7 @@ class SessionProcess {
       // Drain message queue (matches tmux behavior)
       if (this.messageQueue.length > 0) {
         const nextMsg = this.messageQueue.shift();
+        this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
         setTimeout(() => this.sendMessage(nextMsg), 100);
       }
     });
@@ -645,6 +647,7 @@ class SessionProcess {
       // Drain message queue so queued messages aren't silently lost
       if (this.messageQueue.length > 0) {
         const nextMsg = this.messageQueue.shift();
+        this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
         setTimeout(() => this.sendMessage(nextMsg), 100);
       }
     });
@@ -852,6 +855,7 @@ class SessionProcess {
               });
               if (this.messageQueue.length > 0) {
                 const nextMsg = this.messageQueue.shift();
+                this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
                 setTimeout(() => this.sendMessage(nextMsg), 100);
               }
             }
@@ -915,6 +919,7 @@ class SessionProcess {
         sessionId: this.id,
         content: text,
         attachments: attachments || null,
+        queued: true,
         timestamp: new Date().toISOString()
       });
       return;
