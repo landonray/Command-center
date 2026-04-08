@@ -26,6 +26,11 @@ export function useWebSocket(sessionId) {
     setStreamEvents([]);
   }, [sessionId]);
 
+  // Clear send errors when switching sessions so stale errors don't persist
+  useEffect(() => {
+    setSendError(null);
+  }, [sessionId]);
+
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
@@ -135,6 +140,12 @@ export function useWebSocket(sessionId) {
               setMessages(prev => {
                 for (let i = prev.length - 1; i >= 0 && i >= prev.length - 10; i--) {
                   if (prev[i].role === 'user' && prev[i].content === data.content) {
+                    // If server says it's queued, update the existing message
+                    if (data.queued && !prev[i].queued) {
+                      const next = [...prev];
+                      next[i] = { ...next[i], queued: true };
+                      return next;
+                    }
                     return prev;
                   }
                 }
@@ -142,9 +153,43 @@ export function useWebSocket(sessionId) {
                   role: 'user',
                   content: data.content,
                   timestamp: data.timestamp,
-                  attachments: data.attachments || null
+                  attachments: data.attachments || null,
+                  queued: !!data.queued
                 }];
               });
+              break;
+
+            case 'message_dequeued':
+              // Message has been picked up from the queue — remove queued flag
+              setMessages(prev => {
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  if (prev[i].role === 'user' && prev[i].queued && prev[i].content === data.content) {
+                    const next = [...prev];
+                    next[i] = { ...next[i], queued: false };
+                    return next;
+                  }
+                }
+                return prev;
+              });
+              break;
+
+            case 'message_deleted':
+              setMessages(prev => {
+                // Remove the message with matching content
+                // Search from the end since queued messages are recent
+                for (let i = prev.length - 1; i >= 0; i--) {
+                  if (prev[i].role === 'user' && prev[i].content === data.content) {
+                    const next = [...prev];
+                    next.splice(i, 1);
+                    return next;
+                  }
+                }
+                return prev;
+              });
+              // Also remove from optimistic tracking if present
+              optimisticMessagesRef.current = optimisticMessagesRef.current.filter(
+                m => m.content !== data.content
+              );
               break;
 
             case 'permission_response':
@@ -383,6 +428,16 @@ export function useWebSocket(sessionId) {
 
   const clearSendError = useCallback(() => setSendError(null), []);
 
+  const cancelQualityCheck = useCallback((ruleId) => {
+    return api.post(`/api/quality/cancel/${sessionId}/${ruleId}`).catch(() => {});
+  }, [sessionId]);
+
+  const deleteQueuedMessage = useCallback((content) => {
+    return api.post(`/api/sessions/${sessionId}/delete-queued-message`, { content }).catch(() => {
+      setSendError('Message already sent — could not delete.');
+    });
+  }, [sessionId]);
+
   return {
     messages,
     setMessages,
@@ -395,6 +450,8 @@ export function useWebSocket(sessionId) {
     resuming,
     sendError,
     clearSendError,
-    optimisticMessagesRef
+    optimisticMessagesRef,
+    cancelQualityCheck,
+    deleteQueuedMessage
   };
 }

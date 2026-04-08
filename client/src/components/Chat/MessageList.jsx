@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { User, Bot, Loader, FileIcon, Download, ShieldCheck, ShieldAlert, ChevronDown, ChevronRight, Send } from 'lucide-react';
+import { User, Bot, Loader, FileIcon, Download, ShieldCheck, ShieldAlert, ChevronDown, ChevronRight, Send, X, Trash2 } from 'lucide-react';
 import { formatDate } from '../../utils/format';
 import MarkdownPreview from '../FileBrowser/MarkdownPreview';
 import styles from './MessageList.module.css';
@@ -80,13 +80,14 @@ function WorkingIndicator({ streamEvents }) {
   );
 }
 
-function QualityResultItem({ msg, sendMessage }) {
+function QualityResultItem({ msg, sendMessage, onCancel }) {
   const [expanded, setExpanded] = useState(false);
   const isRunning = msg.result === 'running';
   const isFail = msg.result === 'fail';
+  const isCancelled = msg.result === 'cancelled';
   const hasAnalysis = msg.analysis && msg.analysis.length > 0;
   const hasDetails = msg.details && msg.details.length > 0;
-  const isExpandable = !isRunning && (hasAnalysis || hasDetails);
+  const isExpandable = !isRunning && !isCancelled && (hasAnalysis || hasDetails);
 
   const handleSendAsMessage = (e) => {
     e.stopPropagation();
@@ -98,7 +99,15 @@ function QualityResultItem({ msg, sendMessage }) {
     sendMessage(parts.join('\n\n'));
   };
 
-  const stateClass = isRunning ? styles.qualityRunning : isFail ? styles.qualityFail : styles.qualityPass;
+  const handleCancel = (e) => {
+    e.stopPropagation();
+    if (onCancel) onCancel(msg.ruleId);
+  };
+
+  const stateClass = isRunning ? styles.qualityRunning
+    : isCancelled ? styles.qualityCancelled
+    : isFail ? styles.qualityFail
+    : styles.qualityPass;
 
   return (
     <div
@@ -106,13 +115,17 @@ function QualityResultItem({ msg, sendMessage }) {
       onClick={() => isExpandable && setExpanded(!expanded)}
     >
       <div className={styles.qualityIcon}>
-        {isRunning ? <Loader size={14} className={styles.qualitySpinner} /> : isFail ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
+        {isRunning ? <Loader size={14} className={styles.qualitySpinner} />
+          : isCancelled ? <X size={14} />
+          : isFail ? <ShieldAlert size={14} />
+          : <ShieldCheck size={14} />}
       </div>
       <div className={styles.qualityBody}>
         <span className={styles.qualityLabel}>
           {isExpandable && (expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />)}
           {msg.ruleName}
           {isRunning && <span className={styles.qualityRunningText}>reviewing</span>}
+          {isCancelled && <span className={styles.qualityCancelledText}>cancelled</span>}
           <span className={`${styles.qualityBadge} ${styles[`severity-${msg.severity}`]}`}>{msg.severity}</span>
         </span>
         {msg.details && <span className={styles.qualityDetails}>{msg.details}</span>}
@@ -128,12 +141,17 @@ function QualityResultItem({ msg, sendMessage }) {
           </div>
         )}
       </div>
+      {isRunning && onCancel && (
+        <button className={styles.qualityCancelBtn} onClick={handleCancel} title="Cancel this check">
+          <X size={12} />
+        </button>
+      )}
       {msg.timestamp && <span className={styles.qualityTime}>{formatDate(msg.timestamp)}</span>}
     </div>
   );
 }
 
-export default function MessageList({ messages, loading, streamEvents, status, sendMessage }) {
+export default function MessageList({ messages, loading, streamEvents, status, sendMessage, onCancelCheck, onDeleteMessage }) {
   const bottomRef = useRef(null);
   const containerRef = useRef(null);
   const isNearBottomRef = useRef(true);
@@ -191,13 +209,13 @@ export default function MessageList({ messages, loading, streamEvents, status, s
 
       {messages.map((msg, i) => {
         if (msg.role === 'quality') {
-          return <QualityResultItem key={i} msg={msg} sendMessage={sendMessage} />;
+          return <QualityResultItem key={i} msg={msg} sendMessage={sendMessage} onCancel={onCancelCheck} />;
         }
 
         return (
           <div
             key={i}
-            className={`${styles.message} ${msg.role === 'user' ? styles.userMessage : styles.assistantMessage}`}
+            className={`${styles.message} ${msg.role === 'user' ? styles.userMessage : styles.assistantMessage} ${msg.queued ? styles.queuedMessage : ''}`}
           >
             <div className={styles.avatar}>
               {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
@@ -205,6 +223,9 @@ export default function MessageList({ messages, loading, streamEvents, status, s
             <div className={styles.content}>
               <div className={styles.meta}>
                 <span className={styles.role}>{msg.role === 'user' ? 'You' : 'Claude'}</span>
+                {msg.queued && (
+                  <span className={styles.queuedBadge}>queued</span>
+                )}
                 {msg.timestamp && (
                   <span className={styles.time}>{formatDate(msg.timestamp)}</span>
                 )}
@@ -223,6 +244,15 @@ export default function MessageList({ messages, loading, streamEvents, status, s
                 <div className={styles.resultBadge}>Final Result</div>
               )}
             </div>
+            {msg.queued && onDeleteMessage && (
+              <button
+                className={styles.deleteQueuedBtn}
+                onClick={() => onDeleteMessage(msg.content)}
+                title="Delete queued message"
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         );
       })}

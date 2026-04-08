@@ -499,6 +499,7 @@ class SessionProcess {
     // Process queued messages
     if (this.messageQueue.length > 0) {
       const nextMsg = this.messageQueue.shift();
+      this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
       setTimeout(() => this.sendMessage(nextMsg), 100);
     }
   }
@@ -620,6 +621,7 @@ class SessionProcess {
       // Drain message queue (matches tmux behavior)
       if (this.messageQueue.length > 0) {
         const nextMsg = this.messageQueue.shift();
+        this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
         setTimeout(() => this.sendMessage(nextMsg), 100);
       }
     });
@@ -647,6 +649,7 @@ class SessionProcess {
       // Drain message queue so queued messages aren't silently lost
       if (this.messageQueue.length > 0) {
         const nextMsg = this.messageQueue.shift();
+        this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
         setTimeout(() => this.sendMessage(nextMsg), 100);
       }
     });
@@ -854,6 +857,7 @@ class SessionProcess {
               });
               if (this.messageQueue.length > 0) {
                 const nextMsg = this.messageQueue.shift();
+                this.broadcast({ type: 'message_dequeued', sessionId: this.id, content: nextMsg, timestamp: new Date().toISOString() });
                 setTimeout(() => this.sendMessage(nextMsg), 100);
               }
             }
@@ -924,6 +928,7 @@ class SessionProcess {
         sessionId: this.id,
         content: text,
         attachments: attachments || null,
+        queued: true,
         timestamp: new Date().toISOString()
       });
       return;
@@ -1064,6 +1069,40 @@ class SessionProcess {
     }
 
     await this.spawnProcess(prompt);
+  }
+
+  /**
+   * Delete a queued message that hasn't been processed yet.
+   * Returns true if the message was found and removed, false otherwise.
+   */
+  deleteQueuedMessage(content) {
+    const idx = this.messageQueue.lastIndexOf(content);
+    if (idx === -1) return false;
+
+    this.messageQueue.splice(idx, 1);
+
+    // Delete only the most recent matching message from DB (not all with same content)
+    query(
+      'DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE session_id = $1 AND role = $2 AND content = $3 ORDER BY timestamp DESC LIMIT 1)',
+      [this.id, 'user', content]
+    ).catch(e => console.error('[Session] Error deleting queued message from DB:', e.message));
+
+    // Update message count
+    query(
+      'UPDATE sessions SET user_message_count = GREATEST(user_message_count - 1, 0) WHERE id = $1',
+      [this.id]
+    ).catch(e => console.error('[Session] Error updating message count:', e.message));
+
+    // Broadcast deletion so all connected clients remove it
+    this.broadcast({
+      type: 'message_deleted',
+      sessionId: this.id,
+      content,
+      timestamp: new Date().toISOString()
+    });
+
+    console.log(`[Session ${this.id.slice(0, 8)}] Deleted queued message: "${content.slice(0, 50)}..."`);
+    return true;
   }
 
   respondToPermission(approved) {

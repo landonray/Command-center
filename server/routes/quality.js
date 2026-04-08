@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../database');
 const { generateHooksConfig, removeHooksConfig, getHooksStatus } = require('../services/hooksGenerator');
-const { invalidateRulesCache, getRunningChecks } = require('../services/qualityRunner');
+const { invalidateRulesCache, getRunningChecks, cancelCheck } = require('../services/qualityRunner');
 
 // ==========================================
 // RULES MANAGEMENT
@@ -233,6 +233,23 @@ router.post('/results', async (req, res) => {
 // Get currently-running quality checks for a session
 router.get('/results/running/:sessionId', (req, res) => {
   res.json({ running: getRunningChecks(req.params.sessionId) });
+});
+
+// Cancel a running quality check
+router.post('/cancel/:sessionId/:ruleId', (req, res) => {
+  const { sessionId, ruleId } = req.params;
+  const { getSession } = require('../services/sessionManager');
+
+  const session = getSession(sessionId);
+  const broadcast = session ? (event) => session.broadcast(event) : null;
+
+  const cancelled = cancelCheck(sessionId, ruleId, broadcast);
+
+  if (cancelled) {
+    res.json({ success: true, message: 'Quality check cancelled' });
+  } else {
+    res.status(404).json({ error: 'Check not found or already completed' });
+  }
 });
 
 // Get quality results for a session
