@@ -135,6 +135,8 @@ class SessionProcess {
     this.stderrBuffer = ''; // accumulates stderr for error reporting
     this._qualityStopDispatched = false; // guard against duplicate onSessionStop calls
     this.qualityReviewIteration = 0; // tracks quality review loop iterations (max 3)
+    this._lastContextRatio = 0; // previous context window usage ratio
+    this._compactionDetected = false; // set when context drops significantly (compaction happened)
   }
 
   addListener(callback) {
@@ -870,6 +872,13 @@ class SessionProcess {
     const maxTokens = 200000;
     const usageRatio = Math.min(promptTokens / maxTokens, 1.0);
 
+    // Detect compaction: context usage drops significantly (e.g. 0.7 → 0.2)
+    if (this._lastContextRatio >= 0.4 && usageRatio < this._lastContextRatio * 0.6) {
+      console.log(`[Compaction] Detected for session ${this.id.slice(0,8)}: ${Math.round(this._lastContextRatio * 100)}% → ${Math.round(usageRatio * 100)}%`);
+      this._compactionDetected = true;
+    }
+    this._lastContextRatio = usageRatio;
+
     await query('UPDATE sessions SET context_window_usage = $1 WHERE id = $2', [usageRatio, this.id]);
 
     const { sendNotification } = require('./notificationService');
@@ -1024,12 +1033,25 @@ class SessionProcess {
       timestamp: new Date().toISOString()
     });
 
-    // If we have no cliSessionId and there are prior messages, this is a fresh
-    // Claude CLI invocation with no conversation history (e.g. after server
-    // restart / tmux recovery). Build a context preamble so Claude knows what
-    // happened in the previous session.
+    // If compaction was detected (context usage dropped significantly), prepend
+    // the full conversation history so Claude regains context that was lost.
+    // This takes priority over the resume preamble since it's more complete.
     let prompt = text;
-    if (!this.cliSessionId && msgCount && msgCount.user_message_count > 0) {
+    if (this._compactionDetected) {
+      this._compactionDetected = false;
+      console.log(`[Compaction] Injecting conversation history for session ${this.id.slice(0,8)}`);
+      try {
+        const compactionPreamble = await buildCompactionPreamble(this.id);
+        if (compactionPreamble) {
+          prompt = `${compactionPreamble}\n\nUser's new message: ${text}`;
+        }
+      } catch (e) {
+        console.error(`[Compaction] Failed to build preamble for session ${this.id.slice(0,8)}:`, e.message);
+      }
+    } else if (!this.cliSessionId && msgCount && msgCount.user_message_count > 0) {
+      // No cliSessionId and prior messages means this is a fresh Claude CLI
+      // invocation with no conversation history (e.g. after server restart /
+      // tmux recovery). Build a context preamble so Claude knows what happened.
       this.broadcast({
         type: 'session_resuming',
         sessionId: this.id,
@@ -1388,6 +1410,43 @@ async function buildContextPreamble(sessionId) {
   const preamble = `CONTEXT RECOVERY: You are resuming a previous session. Here is the context from that session:\n\n${parts.join('\n\n')}\n\nThe user's new message follows.`;
 
   return preamble;
+}
+
+/**
+ * Build a preamble that re-injects the full conversation history after
+ * compaction is detected. Unlike buildContextPreamble (which is for server
+ * restarts and uses summaries + truncated messages), this pulls the complete
+ * user/assistant dialogue so Claude regains all context that was lost to
+ * compaction.
+ */
+async function buildCompactionPreamble(sessionId) {
+  const result = await query(
+    `SELECT role, content, timestamp FROM messages WHERE session_id = $1 ORDER BY timestamp ASC`,
+    [sessionId]
+  );
+  if (result.rows.length === 0) return null;
+
+  const ROLE_LABELS = { user: 'User', assistant: 'Assistant', system: 'System' };
+  // Cap at ~50k chars to avoid re-filling the context window.
+  // Prioritize recent messages — build from the end and stop when we hit the limit.
+  const MAX_CHARS = 50000;
+  const lines = [];
+  let totalChars = 0;
+  for (let i = result.rows.length - 1; i >= 0; i--) {
+    const m = result.rows[i];
+    const label = ROLE_LABELS[m.role] || m.role;
+    const line = `${label}: ${m.content}`;
+    if (totalChars + line.length > MAX_CHARS && lines.length > 0) break;
+    lines.unshift(line);
+    totalChars += line.length;
+  }
+
+  const conversation = lines.join('\n\n');
+  const truncated = lines.length < result.rows.length
+    ? ` (showing ${lines.length} of ${result.rows.length} messages — oldest messages trimmed to fit)`
+    : '';
+
+  return `CONTEXT RECOVERY — COMPACTION DETECTED: Your context was just compacted and you may have lost conversation history. Here is the conversation so far${truncated}:\n\n${conversation}\n\nThe user's new message follows. Continue naturally — do not acknowledge this recovery unless the user asks about it.`;
 }
 
 // --- Resume a closed session ---
