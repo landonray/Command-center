@@ -383,6 +383,10 @@ export function useWebSocket(sessionId) {
 
   const clearSendError = useCallback(() => setSendError(null), []);
 
+  const cancelQualityCheck = useCallback((ruleId) => {
+    return api.post(`/api/quality/cancel/${sessionId}/${ruleId}`).catch(() => {});
+  }, [sessionId]);
+
   return {
     messages,
     setMessages,
@@ -395,6 +399,7 @@ export function useWebSocket(sessionId) {
     resuming,
     sendError,
     clearSendError,
-    optimisticMessagesRef
+    optimisticMessagesRef,
+    cancelQualityCheck
   };
 }
