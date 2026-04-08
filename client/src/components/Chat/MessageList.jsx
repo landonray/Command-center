@@ -199,15 +199,21 @@ export default function MessageList({ messages, loading, streamEvents, status, s
   }
 
   // Determine which user messages are "queued" (waiting to be processed)
-  // Queued messages are user messages after the last non-user message while the agent is working
+  // When the agent is working, the first trailing user message is the one being processed.
+  // Only subsequent user messages are actually still in the queue.
   let queuedStartIdx = messages.length;
   if (status === 'working') {
+    let firstTrailingUserIdx = -1;
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'user') {
-        queuedStartIdx = i;
+        firstTrailingUserIdx = i;
       } else {
         break;
       }
+    }
+    // Skip the first one (being processed), mark the rest as queued
+    if (firstTrailingUserIdx !== -1 && firstTrailingUserIdx < messages.length - 1) {
+      queuedStartIdx = firstTrailingUserIdx + 1;
     }
   }
 
