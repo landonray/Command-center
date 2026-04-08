@@ -11,7 +11,6 @@ const execFileAsync = promisify(execFile);
 const qualityRunner = require('./qualityRunner');
 
 const activeSessions = new Map();
-let queueIdCounter = 0;
 
 /**
  * Build a message to send back to the agent when quality rules with
@@ -93,7 +92,7 @@ async function generateSessionName(messageText) {
     const text = await chatCompletion({
       model: 'claude-haiku-4-5',
       max_tokens: 30,
-      system: 'You are a session naming tool. Output ONLY a concise 3-6 word title. No explanation, no quotes, no punctuation except spaces. If the message is vague, output "General Chat".',
+      system: 'You are a session naming tool. Your ONLY job is to output a concise 3-6 word title summarizing the topic of the user message. Rules: output ONLY the title, no explanation, no quotes, no punctuation except spaces, no conversational response. Do NOT answer or respond to the message content. If the message is vague, output "General Chat". Examples: "Fix Login Button Styling", "Database Migration Script", "API Rate Limiting Setup".',
       messages: [{ role: 'user', content: messageText }],
     });
     const name = text?.trim() || '';
@@ -498,7 +497,7 @@ class SessionProcess {
     // Process queued messages
     if (this.messageQueue.length > 0) {
       const nextMsg = this.messageQueue.shift();
-      setTimeout(() => this.sendMessage(nextMsg.content), 100);
+      setTimeout(() => this.sendMessage(nextMsg), 100);
     }
   }
 
@@ -619,7 +618,7 @@ class SessionProcess {
       // Drain message queue (matches tmux behavior)
       if (this.messageQueue.length > 0) {
         const nextMsg = this.messageQueue.shift();
-        setTimeout(() => this.sendMessage(nextMsg.content), 100);
+        setTimeout(() => this.sendMessage(nextMsg), 100);
       }
     });
 
@@ -646,7 +645,7 @@ class SessionProcess {
       // Drain message queue so queued messages aren't silently lost
       if (this.messageQueue.length > 0) {
         const nextMsg = this.messageQueue.shift();
-        setTimeout(() => this.sendMessage(nextMsg.content), 100);
+        setTimeout(() => this.sendMessage(nextMsg), 100);
       }
     });
   }
@@ -853,7 +852,7 @@ class SessionProcess {
               });
               if (this.messageQueue.length > 0) {
                 const nextMsg = this.messageQueue.shift();
-                setTimeout(() => this.sendMessage(nextMsg.content), 100);
+                setTimeout(() => this.sendMessage(nextMsg), 100);
               }
             }
           }
@@ -893,16 +892,7 @@ class SessionProcess {
 
     if (this.process && this.status === 'working') {
       // A process is already running — queue the message but still show it in the UI
-      const queueId = `q_${++queueIdCounter}_${Date.now()}`;
-      const queuedAt = new Date().toISOString();
-      this.messageQueue.push({ id: queueId, content: text, queuedAt });
-      this.broadcast({
-        type: 'message_queued',
-        sessionId: this.id,
-        messageId: queueId,
-        content: text,
-        queuedAt
-      });
+      this.messageQueue.push(text);
 
       // Insert into DB and broadcast so the user sees their message immediately
       if (attachments) {
@@ -1171,24 +1161,6 @@ class SessionProcess {
     }
 
     this.finishEnd();
-  }
-
-  getQueue() {
-    return this.messageQueue.map(({ id, content, queuedAt }) => ({ id, content, queuedAt }));
-  }
-
-  deleteFromQueue(messageId) {
-    const index = this.messageQueue.findIndex(m => m.id === messageId);
-    if (index === -1) return false;
-
-    this.messageQueue.splice(index, 1);
-    this.broadcast({
-      type: 'message_dequeued',
-      sessionId: this.id,
-      messageId,
-      timestamp: new Date().toISOString()
-    });
-    return true;
   }
 
   finishEnd() {
@@ -1512,6 +1484,37 @@ async function resumeSession(sessionId, newMessage, { listener } = {}) {
     const combinedPrompt = preamble
       ? `${preamble}\n\nUser's new message: ${newMessage}`
       : newMessage;
+
+    // Trigger auto-naming if this is the first user message (session lost memory due to server restart)
+    if (sessionRow.user_message_count === 0) {
+      const wd = sessionRow.working_directory || '';
+      const wdBasename = wd ? path.basename(wd) : null;
+      const worktreeMatch = wd.includes('.claude/worktrees/') ? wd.match(/^(.+?)\/\.claude\/worktrees\//) : null;
+      const projectBasename = worktreeMatch ? path.basename(worktreeMatch[1]) : null;
+      const isDefaultName = (
+        sessionRow.name === 'New Session' ||
+        (wdBasename && sessionRow.name === wdBasename) ||
+        (projectBasename && sessionRow.name === projectBasename)
+      );
+      if (isDefaultName) {
+        generateSessionName(newMessage).then(async (name) => {
+          if (!name) {
+            autoNameLog(`No name generated for resumed session ${sessionId.slice(0,8)}`);
+            return;
+          }
+          await query('UPDATE sessions SET name = $1 WHERE id = $2', [name, sessionId]);
+          const event = {
+            type: 'session_name_updated',
+            sessionId,
+            name,
+            timestamp: new Date().toISOString()
+          };
+          session.broadcast(event);
+          globalEvents.emit('session_name_updated', event);
+          autoNameLog(`Resumed session ${sessionId.slice(0,8)} renamed to "${name}" and broadcast`);
+        }).catch(e => autoNameLog('Resumed session name generation error:', e.message));
+      }
+    }
 
     await query("INSERT INTO messages (session_id, role, content, timestamp) VALUES ($1, 'user', $2, NOW())", [sessionId, newMessage]);
     await query("UPDATE sessions SET user_message_count = user_message_count + 1, last_activity_at = NOW() WHERE id = $1", [sessionId]);
