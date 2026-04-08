@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../utils/api';
@@ -14,12 +14,42 @@ export default function Dashboard() {
   const [showArchived, setShowArchived] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [contentMatchIds, setContentMatchIds] = useState(new Set());
   const [collapsedProjects, setCollapsedProjects] = useState(new Set());
+  const searchTimerRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     loadSessions();
   }, [loadSessions]);
+
+  const searchContent = useCallback((query) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!query || query.length < 2) {
+      setContentMatchIds(new Set());
+      return;
+    }
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await api.get(`/api/history/search?q=${encodeURIComponent(query)}&limit=100`);
+        const ids = new Set(results.map(r => r.session_id));
+        setContentMatchIds(ids);
+      } catch {
+        setContentMatchIds(new Set());
+      }
+    }, 300);
+  }, []);
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    searchContent(value.trim());
+  };
+
+  const handleSearchClear = () => {
+    setSearchQuery('');
+    setContentMatchIds(new Set());
+  };
 
   const filteredSessions = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -29,11 +59,11 @@ export default function Dashboard() {
       if (query) {
         const name = (session.name || '').toLowerCase();
         const lastAction = (session.last_action_summary || '').toLowerCase();
-        if (!name.includes(query) && !lastAction.includes(query)) return false;
+        if (!name.includes(query) && !lastAction.includes(query) && !contentMatchIds.has(session.id)) return false;
       }
       return true;
     });
-  }, [sessions, showEnded, showArchived, searchQuery]);
+  }, [sessions, showEnded, showArchived, searchQuery, contentMatchIds]);
 
   const toggleProject = (projectName) => {
     setCollapsedProjects(prev => {
@@ -94,10 +124,10 @@ export default function Dashboard() {
           className={styles.searchInput}
           placeholder="Search sessions..."
           value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
+          onChange={handleSearchChange}
         />
         {searchQuery && (
-          <button className={styles.searchClear} onClick={() => setSearchQuery('')}>&times;</button>
+          <button className={styles.searchClear} onClick={handleSearchClear}>&times;</button>
         )}
       </div>
 
