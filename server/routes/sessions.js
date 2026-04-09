@@ -6,6 +6,14 @@ const { query } = require('../database');
 const { createSession, getSession, getAllActiveSessions, endSession, resumeSession } = require('../services/sessionManager');
 const { getGitPipeline } = require('../services/fileWatcher');
 
+let _worktreeCleanup;
+async function loadWorktreeCleanup() {
+  if (!_worktreeCleanup) {
+    _worktreeCleanup = await import('../services/worktreeCleanup.js');
+  }
+  return _worktreeCleanup;
+}
+
 // List all sessions (active + recent + ended — unified view)
 router.get('/', async (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
@@ -259,6 +267,25 @@ router.post('/:id/archive', async (req, res) => {
     return res.status(404).json({ error: 'Session not found' });
   }
   res.json({ success: true, archived: value });
+});
+
+// Check worktree status for uncommitted changes
+router.get('/:id/worktree-status', async (req, res) => {
+  try {
+    const result = await query('SELECT working_directory, use_worktree FROM sessions WHERE id = $1', [req.params.id]);
+    const session = result.rows[0];
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    if (!session.use_worktree || !session.working_directory) {
+      return res.json({ hasUncommittedChanges: false, worktreePath: null });
+    }
+    const { getWorktreeStatus } = await loadWorktreeCleanup();
+    const status = getWorktreeStatus(session.working_directory);
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // End session
