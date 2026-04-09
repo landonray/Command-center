@@ -166,7 +166,6 @@ router.post('/:id/delete-queued-message', (req, res) => {
     return res.status(400).json({ error: 'content is required' });
   }
 
-  const { getSession } = require('../services/sessionManager');
   const session = getSession(req.params.id);
   if (!session) {
     return res.status(404).json({ error: 'Session not found' });
@@ -182,7 +181,6 @@ router.post('/:id/delete-queued-message', (req, res) => {
 
 // Interrupt a working session (send Escape via tmux)
 router.post('/:id/interrupt', (req, res) => {
-  const { getSession } = require('../services/sessionManager');
   const session = getSession(req.params.id);
   if (!session) {
     return res.status(404).json({ error: 'Session not found' });
