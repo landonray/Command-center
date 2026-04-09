@@ -27,7 +27,12 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "concurrently": "^9.0.0",
+    "jsdom": "^29.0.2",
+    "lucide-react": "^1.7.0",
+    "react-router-dom": "^7.14.0",
     "vitest": "^4.1.3"
   }
 }

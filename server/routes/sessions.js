@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const router = express.Router();
 const { query } = require('../database');
 const { createSession, getSession, getAllActiveSessions, endSession, resumeSession } = require('../services/sessionManager');
@@ -310,7 +310,7 @@ router.post('/:id/end', async (req, res) => {
           // Get branch name from git, fall back to worktree_name from DB
           let branchName = null;
           try {
-            branchName = execSync('git branch --show-current', {
+            branchName = execFileSync('git', ['branch', '--show-current'], {
               cwd: worktreePath,
               encoding: 'utf-8',
               timeout: 5000,
@@ -466,13 +466,15 @@ router.post('/cwd-update', async (req, res) => {
   if (session && session.use_worktree) {
     try {
       const resolvedDir = working_directory.replace(/^~/, process.env.HOME || '');
-      const worktreeName = execSync('git worktree list --porcelain 2>/dev/null | head -1', {
+      const worktreeOutput = execFileSync('git', ['worktree', 'list', '--porcelain'], {
         cwd: resolvedDir,
         encoding: 'utf-8',
-        timeout: 5000
+        timeout: 5000,
+        stdio: ['pipe', 'pipe', 'ignore'],
       }).trim();
-      // Extract directory name from "worktree /path/to/worktree"
-      const worktreeDir = worktreeName.replace(/^worktree\s+/, '');
+      // First line is "worktree /path/to/worktree"
+      const worktreeFirstLine = worktreeOutput.split('\n')[0] || '';
+      const worktreeDir = worktreeFirstLine.replace(/^worktree\s+/, '');
       const name = path.basename(worktreeDir);
       if (name) {
         await query('UPDATE sessions SET worktree_name = $1 WHERE id = $2', [name, session_id]);
