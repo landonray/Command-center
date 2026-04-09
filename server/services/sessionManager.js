@@ -137,7 +137,8 @@ class SessionProcess {
     this.qualityReviewIteration = 0; // tracks quality review loop iterations (max 3)
     this._lastContextRatio = 0; // previous context window usage ratio
     this._compactionDetected = false; // set when context drops significantly (compaction happened)
-    this._currentAssistantMsgId = null; // DB row id for the current assistant turn (upsert on updates)
+    this._currentAssistantMsgId = null; // DB row id for the current assistant message
+    this._currentAssistantCliMsgId = null; // CLI message ID (msg_xxx) to detect same vs new message
     this._processedToolUseIds = new Set(); // track which tool_use blocks we've already processed
   }
 
@@ -803,14 +804,16 @@ class SessionProcess {
           }
           if (content) {
             this.detectDevServerUrl(content);
-            // Claude CLI emits an 'assistant' event for EVERY content block update
-            // within the same turn (e.g., text → tool_use → tool_use = 3 events).
-            // Each event contains the full message. If we INSERT every time, the DB
-            // ends up with N duplicate rows per turn. Instead, INSERT on the first
-            // event and UPDATE on subsequent events within the same turn.
-            if (this._currentAssistantMsgId) {
+            // Claude CLI emits separate assistant events per content block — each
+            // event has its OWN blocks (text, tool_use, thinking), NOT accumulated.
+            // Events sharing the same message ID are part of the same turn.
+            // We use the message ID to dedup: UPDATE if same msg, INSERT if new msg.
+            const msgId = event.message?.id || null;
+
+            if (msgId && msgId === this._currentAssistantCliMsgId && this._currentAssistantMsgId) {
+              // Same CLI message — update to append/replace text
               await query(
-                `UPDATE messages SET content = $1, timestamp = NOW() WHERE id = $2`,
+                `UPDATE messages SET content = $1 WHERE id = $2`,
                 [content, this._currentAssistantMsgId]
               );
               await query(
@@ -818,12 +821,13 @@ class SessionProcess {
                 [content.substring(0, 200), this.id]
               );
             } else {
+              // New CLI message — insert a new row
               const result = await query(
                 `INSERT INTO messages (session_id, role, content, timestamp) VALUES ($1, 'assistant', $2, NOW()) RETURNING id`,
                 [this.id, content]
               );
               this._currentAssistantMsgId = result.rows[0].id;
-              // Only increment the count on the first event of the turn
+              this._currentAssistantCliMsgId = msgId;
               await query(
                 `UPDATE sessions SET assistant_message_count = assistant_message_count + 1, last_action_summary = $1, last_activity_at = NOW() WHERE id = $2`,
                 [content.substring(0, 200), this.id]
@@ -834,9 +838,8 @@ class SessionProcess {
         break;
 
       case 'tool_result':
-        // After a tool result, the next assistant event is a NEW message (new turn),
-        // not an update to the previous one. Reset the upsert tracker.
-        this._currentAssistantMsgId = null;
+        // tool_result doesn't need to reset anything — we track by CLI message ID
+        // (msg_xxx) which changes naturally when a new assistant turn begins.
         if (event.content) {
           const text = typeof event.content === 'string'
             ? event.content
@@ -942,8 +945,9 @@ class SessionProcess {
     if (!isQualityReview) {
       this.qualityReviewIteration = 0;
     }
-    // New user message means next assistant event starts a fresh turn
+    // New user message means next assistant event starts a completely fresh turn
     this._currentAssistantMsgId = null;
+    this._currentAssistantCliMsgId = null;
     this._processedToolUseIds = new Set();
 
     if (this.process && this.status === 'working') {
