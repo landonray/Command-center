@@ -1,5 +1,14 @@
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import fs from 'fs';
+
+const WORKTREE_PATH_PATTERN = /\/\.claude\/worktrees\//;
+
+/**
+ * Validate that a path is a worktree path.
+ */
+function isWorktreePath(p) {
+  return p && WORKTREE_PATH_PATTERN.test(p);
+}
 
 /**
  * Check if a worktree directory has uncommitted changes.
@@ -10,12 +19,12 @@ export function getWorktreeStatus(worktreePath) {
     worktreePath,
   };
 
-  if (!worktreePath || !fs.existsSync(worktreePath)) {
+  if (!isWorktreePath(worktreePath) || !fs.existsSync(worktreePath)) {
     return result;
   }
 
   try {
-    const output = execSync('git status --porcelain', {
+    const output = execFileSync('git', ['status', '--porcelain'], {
       cwd: worktreePath,
       encoding: 'utf-8',
       timeout: 5000,
@@ -32,7 +41,7 @@ export function getWorktreeStatus(worktreePath) {
  * Auto-commit all changes in a worktree with a WIP message.
  */
 export function commitWorktreeChanges(worktreePath) {
-  if (!worktreePath || !fs.existsSync(worktreePath)) {
+  if (!isWorktreePath(worktreePath) || !fs.existsSync(worktreePath)) {
     return;
   }
 
@@ -40,8 +49,8 @@ export function commitWorktreeChanges(worktreePath) {
   const date = new Date().toISOString().split('T')[0];
 
   try {
-    execSync('git add -A', opts);
-    execSync(`git commit -m "WIP: session work from ${date}"`, opts);
+    execFileSync('git', ['add', '-A'], opts);
+    execFileSync('git', ['commit', '-m', `WIP: session work from ${date}`], opts);
   } catch (e) {
     console.error(`[worktreeCleanup] Failed to commit in ${worktreePath}:`, e.message);
   }
@@ -52,24 +61,24 @@ export function commitWorktreeChanges(worktreePath) {
  * Errors are logged but never thrown — cleanup must not block session ending.
  */
 export function cleanupWorktree(worktreePath, branchName, projectRoot, deleteBranch) {
-  const opts = { cwd: projectRoot, encoding: 'utf-8', timeout: 10000, stdio: 'ignore' };
+  const opts = { cwd: projectRoot, encoding: 'utf-8', timeout: 10000 };
 
   try {
-    execSync(`git worktree remove --force ${worktreePath}`, opts);
+    execFileSync('git', ['worktree', 'remove', '--force', worktreePath], opts);
   } catch (e) {
     console.error(`[worktreeCleanup] Failed to remove worktree ${worktreePath}:`, e.message);
   }
 
-  if (!deleteBranch) return;
+  if (!deleteBranch || !branchName) return;
 
   try {
-    execSync(`git branch -D ${branchName}`, opts);
+    execFileSync('git', ['branch', '-D', branchName], opts);
   } catch (e) {
     console.error(`[worktreeCleanup] Failed to delete local branch ${branchName}:`, e.message);
   }
 
   try {
-    execSync(`git push origin --delete ${branchName}`, opts);
+    execFileSync('git', ['push', 'origin', '--delete', branchName], opts);
   } catch (e) {
     // Expected to fail if branch was never pushed
   }

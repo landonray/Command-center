@@ -295,18 +295,20 @@ router.post('/:id/end', async (req, res) => {
     const sessionId = req.params.id;
 
     if (commit || cleanup) {
-      const result = await query('SELECT working_directory, use_worktree FROM sessions WHERE id = $1', [sessionId]);
+      const result = await query('SELECT working_directory, use_worktree, worktree_name FROM sessions WHERE id = $1', [sessionId]);
       const session = result.rows[0];
 
       if (session && session.use_worktree && session.working_directory) {
         const worktreePath = session.working_directory;
-        const { commitWorktreeChanges, cleanupWorktree } = await loadWorktreeCleanup();
-
         const wtMatch = worktreePath.match(/^(.+?)\/\.claude\/worktrees\/(.+)$/);
         const projectRoot = wtMatch ? wtMatch[1] : null;
 
-        let branchName = null;
+        // Only proceed if this is actually a worktree path
         if (projectRoot) {
+          const { commitWorktreeChanges, cleanupWorktree } = await loadWorktreeCleanup();
+
+          // Get branch name from git, fall back to worktree_name from DB
+          let branchName = null;
           try {
             branchName = execSync('git branch --show-current', {
               cwd: worktreePath,
@@ -314,17 +316,20 @@ router.post('/:id/end', async (req, res) => {
               timeout: 5000,
             }).trim();
           } catch (e) {
-            // Worktree may already be gone
+            // Worktree may already be gone — fall back to DB
           }
-        }
+          if (!branchName && session.worktree_name) {
+            branchName = `worktree-${session.worktree_name}`;
+          }
 
-        if (commit) {
-          commitWorktreeChanges(worktreePath);
-        }
+          if (commit) {
+            commitWorktreeChanges(worktreePath);
+          }
 
-        if (cleanup && projectRoot) {
-          const deleteBranch = !commit;
-          cleanupWorktree(worktreePath, branchName, projectRoot, deleteBranch);
+          if (cleanup) {
+            const deleteBranch = !commit;
+            cleanupWorktree(worktreePath, branchName, projectRoot, deleteBranch);
+          }
         }
       }
     }

@@ -62,10 +62,24 @@ export default function SessionControls({ sessionId, status, session }) {
     } else if (choice === 'delete') {
       body = { cleanup: true };
     }
-    await api.post(`/api/sessions/${sessionId}/end`, body);
-    setShowCleanupModal(false);
-    loadSessions();
-    navigate('/');
+    try {
+      await api.post(`/api/sessions/${sessionId}/end`, body);
+      setShowCleanupModal(false);
+      loadSessions();
+      navigate('/');
+    } catch (e) {
+      // If end fails, close modal and try ending without cleanup
+      setShowCleanupModal(false);
+      try {
+        await api.post(`/api/sessions/${sessionId}/end`);
+        loadSessions();
+        navigate('/');
+      } catch (e2) {
+        // Last resort — just navigate away
+        loadSessions();
+        navigate('/');
+      }
+    }
   };
 
   const changePermissionMode = async (mode) => {
