@@ -55,6 +55,9 @@ async function resolveWorktreeOnResume(sessionRow, queryFn) {
   if (branchExists) {
     // Recreate the worktree
     try {
+      mockExecFileSync('git', ['worktree', 'prune'], {
+        cwd: parentDir, encoding: 'utf-8', timeout: 5000,
+      });
       mockExecFileSync('git', ['worktree', 'add', `.claude/worktrees/${worktreeName}`, branchName], {
         cwd: parentDir, encoding: 'utf-8', timeout: 15000,
       });
@@ -98,6 +101,7 @@ describe('resolveWorktreeOnResume', () => {
     mockExistsSync.mockReturnValueOnce(false);
     mockExecFileSync
       .mockReturnValueOnce('  worktree-my-wt\n') // local branch check
+      .mockImplementationOnce(() => {}) // git worktree prune
       .mockReturnValueOnce(''); // git worktree add
 
     const result = await resolveWorktreeOnResume({
@@ -119,6 +123,7 @@ describe('resolveWorktreeOnResume', () => {
     mockExecFileSync
       .mockReturnValueOnce('') // local branch check — empty
       .mockReturnValueOnce('  remotes/origin/worktree-my-wt\n') // remote branch check
+      .mockImplementationOnce(() => {}) // git worktree prune
       .mockReturnValueOnce(''); // git worktree add
 
     const result = await resolveWorktreeOnResume({
@@ -156,6 +161,7 @@ describe('resolveWorktreeOnResume', () => {
     mockExistsSync.mockReturnValueOnce(false);
     mockExecFileSync
       .mockReturnValueOnce('  worktree-db-name\n') // local branch found
+      .mockImplementationOnce(() => {}) // git worktree prune
       .mockReturnValueOnce(''); // git worktree add
 
     const result = await resolveWorktreeOnResume({
@@ -180,6 +186,39 @@ describe('resolveWorktreeOnResume', () => {
     }, mockQuery);
 
     expect(result).toBe('/some/other/path');
+    expect(mockQuery).not.toHaveBeenCalled();
+  });
+
+  it('falls back to parent dir when worktree recreation fails', async () => {
+    mockExistsSync
+      .mockReturnValueOnce(false) // worktree dir gone
+      .mockReturnValueOnce(true); // parent dir exists
+    mockExecFileSync
+      .mockReturnValueOnce('  worktree-my-wt\n') // local branch found
+      .mockImplementationOnce(() => {}) // git worktree prune succeeds
+      .mockImplementationOnce(() => { throw new Error('worktree add failed'); }); // git worktree add fails
+
+    const result = await resolveWorktreeOnResume({
+      id: 'test-id-1234',
+      working_directory: '/project/.claude/worktrees/my-wt',
+      worktree_name: 'my-wt',
+    }, mockQuery);
+
+    expect(result).toBe('/project');
+    expect(mockQuery).toHaveBeenCalledWith(
+      'UPDATE sessions SET working_directory = $1 WHERE id = $2',
+      ['/project', 'test-id-1234']
+    );
+  });
+
+  it('returns null working_directory unchanged', async () => {
+    const result = await resolveWorktreeOnResume({
+      id: 'test-id-1234',
+      working_directory: null,
+      worktree_name: null,
+    }, mockQuery);
+
+    expect(result).toBeNull();
     expect(mockQuery).not.toHaveBeenCalled();
   });
 });

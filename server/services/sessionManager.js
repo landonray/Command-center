@@ -79,6 +79,10 @@ async function resolveWorktreeOnResume(sessionRow) {
 
   if (branchExists) {
     try {
+      // Prune stale worktree records before recreation
+      execFileSync('git', ['worktree', 'prune'], {
+        cwd: resolvePath(parentDir), encoding: 'utf-8', timeout: 5000,
+      });
       execFileSync('git', ['worktree', 'add', `.claude/worktrees/${worktreeName}`, branchName], {
         cwd: resolvePath(parentDir), encoding: 'utf-8', timeout: 15000,
       });
