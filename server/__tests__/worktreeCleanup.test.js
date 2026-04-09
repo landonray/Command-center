@@ -4,7 +4,7 @@ const mockExecSync = vi.fn();
 const mockExecFileSync = vi.fn();
 const mockExistsSync = vi.fn();
 
-vi.mock('child_process', () => ({ execSync: mockExecSync, execFileSync: mockExecFileSync }));
+vi.mock('child_process', () => ({ execSync: mockExecSync, execFileSync: mockExecFileSync, default: { execSync: mockExecSync, execFileSync: mockExecFileSync } }));
 vi.mock('fs', () => ({ existsSync: mockExistsSync, default: { existsSync: mockExistsSync } }));
 
 describe('getWorktreeStatus', () => {
