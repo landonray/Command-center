@@ -863,8 +863,15 @@ class SessionProcess {
           if (event.cwd && event.cwd !== this.workingDirectory) {
             this.workingDirectory = event.cwd;
             this.worktreeReady = true;
-            query('UPDATE sessions SET working_directory = $1 WHERE id = $2', [event.cwd, this.id])
-              .catch(e => console.error('Failed to update working directory:', e.message));
+            // Extract worktree_name from the path if this is a worktree session
+            const wtMatch = event.cwd.match(/\/\.claude\/worktrees\/([^/]+)/);
+            if (wtMatch) {
+              query('UPDATE sessions SET working_directory = $1, worktree_name = $2 WHERE id = $3', [event.cwd, wtMatch[1], this.id])
+                .catch(e => console.error('Failed to update working directory:', e.message));
+            } else {
+              query('UPDATE sessions SET working_directory = $1 WHERE id = $2', [event.cwd, this.id])
+                .catch(e => console.error('Failed to update working directory:', e.message));
+            }
           }
         }
         // Extract quality results from hook response output
