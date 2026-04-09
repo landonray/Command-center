@@ -469,6 +469,17 @@
   color: var(--error, #ef4444);
 }
 
+@media (max-width: 600px) {
+  .qualityResult {
+    flex-wrap: wrap;
+  }
+
+  .qualityCancelBtn {
+    margin-left: auto;
+    margin-top: 4px;
+  }
+}
+
 /* Queued message styling */
 .queuedMessage {
   opacity: 0.7;
