@@ -8,19 +8,22 @@ import styles from './FilePreview.module.css';
 
 export default function FilePreview({ content, filePath, onFileSaved }) {
   const [editing, setEditing] = useState(false);
+  const [localContent, setLocalContent] = useState(null);
 
   if (!content) return null;
 
+  // Use locally-saved content if available, otherwise use prop
+  const displayContent = localContent !== null ? { ...content, content: localContent } : content;
   const fileName = filePath?.split('/').pop() || 'unknown';
   const ext = filePath ? '.' + filePath.split('.').pop() : '';
   const isEditable = content.type === 'text' || content.type === 'markdown' || content.type === 'html';
 
   const renderContent = () => {
-    switch (content.type) {
+    switch (displayContent.type) {
       case 'image':
         return (
           <div className={styles.imageContainer}>
-            <img src={content.content} alt={fileName} className={styles.image} />
+            <img src={displayContent.content} alt={fileName} className={styles.image} />
           </div>
         );
 
@@ -29,14 +32,14 @@ export default function FilePreview({ content, filePath, onFileSaved }) {
           <div className={styles.htmlContainer}>
             <div className={styles.previewLabel}>HTML Preview</div>
             <iframe
-              srcDoc={content.content}
+              srcDoc={displayContent.content}
               className={styles.iframe}
               sandbox="allow-scripts"
               title="HTML Preview"
             />
             <details className={styles.sourceToggle}>
               <summary>View Source</summary>
-              <CodePreview code={content.content} language="html" />
+              <CodePreview code={displayContent.content} language="html" />
             </details>
           </div>
         );
@@ -44,10 +47,10 @@ export default function FilePreview({ content, filePath, onFileSaved }) {
       case 'markdown':
         return (
           <div className={styles.markdownContainer}>
-            <MarkdownPreview content={content.content} />
+            <MarkdownPreview content={displayContent.content} />
             <details className={styles.sourceToggle}>
               <summary>View Source</summary>
-              <CodePreview code={content.content} language="markdown" />
+              <CodePreview code={displayContent.content} language="markdown" />
             </details>
           </div>
         );
@@ -55,8 +58,8 @@ export default function FilePreview({ content, filePath, onFileSaved }) {
       case 'text':
         return (
           <CodePreview
-            code={content.content}
-            language={getExtensionLanguage(content.extension || ext)}
+            code={displayContent.content}
+            language={getExtensionLanguage(displayContent.extension || ext)}
           />
         );
 
@@ -64,7 +67,7 @@ export default function FilePreview({ content, filePath, onFileSaved }) {
         return (
           <div className={styles.binaryMessage}>
             <File size={32} />
-            <p>Binary file ({formatFileSize(content.size)})</p>
+            <p>Binary file ({formatFileSize(displayContent.size)})</p>
             <p className={styles.muted}>Cannot display binary files</p>
           </div>
         );
@@ -73,12 +76,12 @@ export default function FilePreview({ content, filePath, onFileSaved }) {
         return (
           <div className={styles.errorMessage}>
             <AlertCircle size={24} />
-            <p>{content.content}</p>
+            <p>{displayContent.content}</p>
           </div>
         );
 
       default:
-        return <pre className={styles.raw}>{content.content}</pre>;
+        return <pre className={styles.raw}>{displayContent.content}</pre>;
     }
   };
 
@@ -86,12 +89,12 @@ export default function FilePreview({ content, filePath, onFileSaved }) {
     <div className={styles.preview}>
       <div className={styles.header}>
         <span className={styles.fileName}>{fileName}</span>
-        {content.size != null && (
-          <span className={styles.fileSize}>{formatFileSize(content.size)}</span>
+        {displayContent.size != null && (
+          <span className={styles.fileSize}>{formatFileSize(displayContent.size)}</span>
         )}
-        {content.modified && (
+        {displayContent.modified && (
           <span className={styles.modified}>
-            Modified: {new Date(content.modified).toLocaleString()}
+            Modified: {new Date(displayContent.modified).toLocaleString()}
           </span>
         )}
         {isEditable && !editing && (
@@ -106,10 +109,10 @@ export default function FilePreview({ content, filePath, onFileSaved }) {
       <div className={editing ? styles.bodyEditing : styles.body}>
         {editing ? (
           <CodeEditor
-            code={content.content}
+            code={displayContent.content}
             filePath={filePath}
             onSave={(newContent) => {
-              content.content = newContent;
+              setLocalContent(newContent);
               setEditing(false);
               if (onFileSaved) onFileSaved();
             }}

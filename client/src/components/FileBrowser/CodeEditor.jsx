@@ -9,9 +9,26 @@ export default function CodeEditor({ code, filePath, onSave, onCancel }) {
   const [errorMsg, setErrorMsg] = useState('');
   const textareaRef = useRef(null);
   const lineNumbersRef = useRef(null);
+  const handleSaveRef = useRef(null);
 
   const lineCount = value.split('\n').length;
   const hasChanges = value !== code;
+
+  const handleSave = async () => {
+    setStatus('saving');
+    setErrorMsg('');
+    try {
+      await api.put('/api/files/content', { path: filePath, content: value });
+      setStatus('saved');
+      if (onSave) onSave(value);
+      setTimeout(() => setStatus(null), 2000);
+    } catch (err) {
+      setStatus('error');
+      setErrorMsg(err.message);
+    }
+  };
+
+  handleSaveRef.current = handleSave;
 
   // Sync scroll between line numbers and textarea
   const handleScroll = useCallback(() => {
@@ -28,7 +45,6 @@ export default function CodeEditor({ code, filePath, onSave, onCancel }) {
       const end = e.target.selectionEnd;
       const newValue = value.substring(0, start) + '  ' + value.substring(end);
       setValue(newValue);
-      // Restore cursor position after React re-render
       requestAnimationFrame(() => {
         e.target.selectionStart = e.target.selectionEnd = start + 2;
       });
@@ -36,23 +52,9 @@ export default function CodeEditor({ code, filePath, onSave, onCancel }) {
     // Ctrl/Cmd+S to save
     if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
-      handleSave();
+      handleSaveRef.current();
     }
   }, [value]);
-
-  const handleSave = async () => {
-    setStatus('saving');
-    setErrorMsg('');
-    try {
-      await api.put('/api/files/content', { path: filePath, content: value });
-      setStatus('saved');
-      if (onSave) onSave(value);
-      setTimeout(() => setStatus(null), 2000);
-    } catch (err) {
-      setStatus('error');
-      setErrorMsg(err.message);
-    }
-  };
 
   // Focus textarea on mount
   useEffect(() => {
