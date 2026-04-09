@@ -288,10 +288,48 @@ router.get('/:id/worktree-status', async (req, res) => {
   }
 });
 
-// End session
+// End session (with optional worktree commit/cleanup)
 router.post('/:id/end', async (req, res) => {
   try {
-    await endSession(req.params.id);
+    const { commit, cleanup } = req.body || {};
+    const sessionId = req.params.id;
+
+    if (commit || cleanup) {
+      const result = await query('SELECT working_directory, use_worktree FROM sessions WHERE id = $1', [sessionId]);
+      const session = result.rows[0];
+
+      if (session && session.use_worktree && session.working_directory) {
+        const worktreePath = session.working_directory;
+        const { commitWorktreeChanges, cleanupWorktree } = await loadWorktreeCleanup();
+
+        const wtMatch = worktreePath.match(/^(.+?)\/\.claude\/worktrees\/(.+)$/);
+        const projectRoot = wtMatch ? wtMatch[1] : null;
+
+        let branchName = null;
+        if (projectRoot) {
+          try {
+            branchName = execSync('git branch --show-current', {
+              cwd: worktreePath,
+              encoding: 'utf-8',
+              timeout: 5000,
+            }).trim();
+          } catch (e) {
+            // Worktree may already be gone
+          }
+        }
+
+        if (commit) {
+          commitWorktreeChanges(worktreePath);
+        }
+
+        if (cleanup && projectRoot) {
+          const deleteBranch = !commit;
+          cleanupWorktree(worktreePath, branchName, projectRoot, deleteBranch);
+        }
+      }
+    }
+
+    await endSession(sessionId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
